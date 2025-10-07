@@ -1,6 +1,6 @@
-# KotlinSecureTunnel
+# KSecureVPN
 
-KotlinSecureTunnel is an open-source VPN solution developed in Kotlin, designed for learning, experimentation, and personal portfolio. The project aims to provide a straightforward, modular, and secure virtual private network implementation that demonstrates core networking, cryptography, and authentication principles.
+KSecureVPN is an open-source VPN solution developed in Kotlin, designed for learning, experimentation, and personal portfolio. The project aims to provide a straightforward, modular, and secure virtual private network implementation that demonstrates core networking, cryptography, and authentication principles.
 
 ## Goals
 
@@ -39,7 +39,7 @@ Kotlin offers a modern, concise syntax, powerful concurrency primitives (corouti
 
 ## Limitations
 
-KotlinSecureTunnel is intended primarily for educational and personal use. It is not a replacement for production-grade VPNs, and does not guarantee protection against sophisticated attacks or fulfill enterprise security standards.
+KSecureVPN is intended primarily for educational and personal use. It is not a replacement for production-grade VPNs, and does not guarantee protection against sophisticated attacks or fulfill enterprise security standards.
 
 ## Getting Started
 
