@@ -1,16 +1,22 @@
-package me.m41k0n
+import tunneling.TunnelClient
+import tunneling.TunnelServer
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-fun main() {
-    val name = "Kotlin"
-    //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-    // to see how IntelliJ IDEA suggests fixing it.
-    println("Hello, " + name + "!")
+fun main(args: Array<String>) {
+    val mode = if (args.isNotEmpty()) args[0] else {
+        println("Escolha o modo:")
+        println("[1] Server")
+        println("[2] Client")
+        print("Digite 1 ou 2: ")
+        when (readlnOrNull()) {
+            "1" -> "server"
+            "2" -> "client"
+            else -> ""
+        }
+    }
 
-    for (i in 1..5) {
-        //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-        // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-        println("i = $i")
+    when (mode) {
+        "server" -> TunnelServer().start()
+        "client" -> TunnelClient().connect()
+        else -> println("Usage: server | client")
     }
 }
