@@ -6,7 +6,6 @@ import java.net.Socket
 import javax.crypto.SecretKey
 
 class TunnelClient(
-
     private val host: String = "127.0.0.1",
     private val port: Int = 9000,
     private val key: SecretKey
@@ -16,10 +15,28 @@ class TunnelClient(
         println("Connected to server: ${socket.inetAddress.hostAddress}")
         val out = socket.getOutputStream()
 
+        print("Username: ")
+        val username = readlnOrNull() ?: ""
+        print("Password: ")
+        val password = System.console()?.readPassword()?.concatToString() ?: readlnOrNull().orEmpty()
+
+        val authPayload = buildString {
+            append("AUTH\n")
+            append(username)
+            append('\n')
+            append(password)
+        }.toByteArray()
+
+        val (authCipher, authIv) = AESCipher.encrypt(authPayload, key)
+        out.write(authIv)
+        out.write(authCipher.size.toBytes())
+        out.write(authCipher)
+        out.flush()
+
+        // After auth, allow sending a normal message
         print("Enter message: ")
         val message = readlnOrNull() ?: ""
         val (cipherText, iv) = AESCipher.encrypt(message.toByteArray(), key)
-
         out.write(iv)
         out.write(cipherText.size.toBytes())
         out.write(cipherText)
