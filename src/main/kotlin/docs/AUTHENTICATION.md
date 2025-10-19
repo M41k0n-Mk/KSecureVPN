@@ -25,6 +25,26 @@ Management
 - Use `auth.UserTool` to create users locally (run `create-user <username>` and follow prompts).
 - For production, populate `config/users.properties` securely (limit file permissions).
 
+Local development key handling
+- The application requires a 32-byte AES key provided as base64 via the `KSECUREVPN_KEY` environment variable.
+- For security, the application will not print keys to stdout or logs. For local development you can generate and store a key securely:
+  - Generate a key (Linux/macOS):
+    ```bash
+    head -c 32 /dev/urandom | base64 | tee ksecurevpn.key
+    ```
+  - Restrict file permissions:
+    ```bash
+    chmod 600 ksecurevpn.key
+    ```
+  - Use it for running the app:
+    ```bash
+    export KSECUREVPN_KEY=$(cat ksecurevpn.key)
+    ./run-your-app
+    ```
+  - Alternatively, store the key in a secrets manager (Vault/KMS) and inject it into the environment at runtime.
+
+If the application generates a key automatically (only in dev/no env provided), it will write the key to `./ksecurevpn.key` with restrictive permissions and print instructions on how to set `KSECUREVPN_KEY` instead of printing the key material.
+
 Security notes
 - Credentials are transmitted over an encrypted channel (AES); do not print passwords to logs.
 - This is an MVP. Future improvements:
