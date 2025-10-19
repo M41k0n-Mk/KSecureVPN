@@ -28,22 +28,22 @@ class TunnelServer(
 
     private suspend fun handleClient(socket: Socket) {
         println("Client connected: ${socket.inetAddress}")
-        val reader = socket.getInputStream()
+    val reader = socket.getInputStream()
 
         // Read first frame -> authentication
         val iv = ByteArray(16)
-        val ivRead = readFully(reader, iv)
+        val ivRead = readFully(reader, iv, logPrefix = "SERVER-AUTH")
         if (ivRead < iv.size) {
             socket.close(); return
         }
 
         val lengthBytes = ByteArray(4)
-        val lenRead = readFully(reader, lengthBytes)
+        val lenRead = readFully(reader, lengthBytes, logPrefix = "SERVER-AUTH")
         if (lenRead < lengthBytes.size) { socket.close(); return }
         val cipherLength = lengthBytes.toInt()
 
         val cipherText = ByteArray(cipherLength)
-        val ctRead = readFully(reader, cipherText)
+        val ctRead = readFully(reader, cipherText, logPrefix = "SERVER-AUTH")
         if (ctRead < cipherText.size) { socket.close(); return }
 
         val plainAuth = try {
@@ -62,12 +62,21 @@ class TunnelServer(
             val ok = authService.authenticate(username, password)
             if (!ok) {
                 println("Authentication failed for user='$username' from ${socket.inetAddress}")
+                // Send authentication failure response
+                socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_FAILED))
+                socket.getOutputStream().flush()
                 socket.close()
                 return
             }
             println("Authentication success for user='$username' from ${socket.inetAddress}")
+            // Send authentication success response
+            socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_SUCCESS))
+            socket.getOutputStream().flush()
         } else {
             println("Malformed auth payload from ${socket.inetAddress}")
+            // Send malformed request response
+            socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_MALFORMED))
+            socket.getOutputStream().flush()
             socket.close()
             return
         }
@@ -75,16 +84,16 @@ class TunnelServer(
         // Now proceed to read normal frames (messages)
         while (true) {
             val ivMsg = ByteArray(16)
-            val ivMsgRead = readFully(reader, ivMsg)
+            val ivMsgRead = readFully(reader, ivMsg, logPrefix = "SERVER-MSG")
             if (ivMsgRead < ivMsg.size) break
 
             val lengthBytes2 = ByteArray(4)
-            val lenRead2 = readFully(reader, lengthBytes2)
+            val lenRead2 = readFully(reader, lengthBytes2, logPrefix = "SERVER-MSG")
             if (lenRead2 < lengthBytes2.size) break
             val cipherLength2 = lengthBytes2.toInt()
 
             val cipherText2 = ByteArray(cipherLength2)
-            val ctRead2 = readFully(reader, cipherText2)
+            val ctRead2 = readFully(reader, cipherText2, logPrefix = "SERVER-MSG")
             if (ctRead2 < cipherText2.size) break
 
             val plain = try {
@@ -101,19 +110,15 @@ class TunnelServer(
                 continue
             }
             println("Received: ${plain.decodeToString()}")
+            
+            // Send message acknowledgment
+            socket.getOutputStream().write(byteArrayOf(ResponseCode.MSG_RECEIVED))
+            socket.getOutputStream().flush()
         }
         socket.close()
     }
 
-    private fun readFully(input: java.io.InputStream, buffer: ByteArray): Int {
-        var offset = 0
-        while (offset < buffer.size) {
-            val read = input.read(buffer, offset, buffer.size - offset)
-            if (read <= 0) return offset
-            offset += read
-        }
-        return offset
-    }
+    // readFully moved to tunneling.StreamUtils
 
     private fun ByteArray.toInt(): Int =
         ((this[0].toInt() and 0xFF) shl 24) or
