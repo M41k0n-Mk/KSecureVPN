@@ -45,17 +45,39 @@ class TunnelClient(
         val authSentTime = System.currentTimeMillis()
         println("[CLIENT] Authentication sent in ${authSentTime - authStartTime}ms")
 
-        // Read authentication response (optional - server might just accept or close connection)
+        // Read authentication response
         try {
-            // Try to read a simple ACK response (1 byte) with a short timeout
-            val ackBuffer = ByteArray(1)
-            val ackRead = readFully(input, ackBuffer, timeoutMillis = 1000, logPrefix = "CLIENT-AUTH-ACK")
-            if (ackRead > 0) {
-                println("[CLIENT] Received authentication acknowledgment: ${ackBuffer[0]}")
+            val authResponseBuffer = ByteArray(1)
+            val authResponseRead = readFully(input, authResponseBuffer, timeoutMillis = 5000, logPrefix = "CLIENT-AUTH-RESPONSE")
+            
+            if (authResponseRead > 0) {
+                when (authResponseBuffer[0]) {
+                    ResponseCode.AUTH_FAILED -> {
+                        println("[CLIENT] ❌ Authentication FAILED - Invalid credentials")
+                        socket.close()
+                        return@runBlocking
+                    }
+                    ResponseCode.AUTH_SUCCESS -> {
+                        println("[CLIENT] ✅ Authentication SUCCESS")
+                    }
+                    ResponseCode.AUTH_MALFORMED -> {
+                        println("[CLIENT] ❌ Authentication FAILED - Malformed request")
+                        socket.close()
+                        return@runBlocking
+                    }
+                    else -> {
+                        println("[CLIENT] ⚠️ Unknown authentication response: ${authResponseBuffer[0]}")
+                    }
+                }
+            } else {
+                println("[CLIENT] ❌ No authentication response received")
+                socket.close()
+                return@runBlocking
             }
         } catch (ex: Exception) {
-            // Authentication response is optional - server might not send one
-            println("[CLIENT] No authentication response (this is normal): ${ex.message}")
+            println("[CLIENT] ❌ Authentication timeout or error: ${ex.message}")
+            socket.close()
+            return@runBlocking
         }
 
         // After auth, allow sending a normal message
@@ -77,15 +99,25 @@ class TunnelClient(
             val msgSentTime = System.currentTimeMillis()
             println("[CLIENT] Message sent in ${msgSentTime - msgStartTime}ms")
             
-            // Try to read a message acknowledgment
+            // Read message acknowledgment
             try {
                 val msgAckBuffer = ByteArray(1)
-                val msgAckRead = readFully(input, msgAckBuffer, timeoutMillis = 2000, logPrefix = "CLIENT-MSG-ACK")
+                val msgAckRead = readFully(input, msgAckBuffer, timeoutMillis = 3000, logPrefix = "CLIENT-MSG-ACK")
+                
                 if (msgAckRead > 0) {
-                    println("[CLIENT] Received message acknowledgment: ${msgAckBuffer[0]}")
+                    when (msgAckBuffer[0]) {
+                        ResponseCode.MSG_RECEIVED -> {
+                            println("[CLIENT] ✅ Message received and processed by server")
+                        }
+                        else -> {
+                            println("[CLIENT] ⚠️ Unknown message response: ${msgAckBuffer[0]}")
+                        }
+                    }
+                } else {
+                    println("[CLIENT] ⚠️ No message acknowledgment received")
                 }
             } catch (ex: Exception) {
-                println("[CLIENT] No message acknowledgment (this is normal): ${ex.message}")
+                println("[CLIENT] ⚠️ Message acknowledgment timeout: ${ex.message}")
             }
         }
 

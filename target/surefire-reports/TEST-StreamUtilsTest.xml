@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="StreamUtilsTest" time="0.169" tests="3" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="StreamUtilsTest" time="0.159" tests="3" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -11,7 +11,7 @@
     <property name="java.vm.specification.version" value="21"/>
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="sun.boot.library.path" value="/usr/local/sdkman/candidates/java/21.0.7-ms/lib"/>
-    <property name="sun.java.command" value="/workspaces/KSecureVPN/target/surefire/surefirebooter18047680495354023083.jar /workspaces/KSecureVPN/target/surefire 2025-10-19T00-31-12_343-jvmRun1 surefire7824030721953417897tmp surefire_013498222100059288575tmp"/>
+    <property name="sun.java.command" value="/workspaces/KSecureVPN/target/surefire/surefirebooter6091435979313414326.jar /workspaces/KSecureVPN/target/surefire 2025-10-19T00-47-54_030-jvmRun1 surefire5379435576471734280tmp surefire_06180520785601257698tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="/workspaces/KSecureVPN/target/test-classes:/workspaces/KSecureVPN/target/classes:/home/codespace/.m2/repository/org/jetbrains/kotlin/kotlin-test-junit5/2.2.10/kotlin-test-junit5-2.2.10.jar:/home/codespace/.m2/repository/org/jetbrains/kotlin/kotlin-test/2.2.10/kotlin-test-2.2.10.jar:/home/codespace/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.10.1/junit-jupiter-api-5.10.1.jar:/home/codespace/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/home/codespace/.m2/repository/org/junit/platform/junit-platform-commons/1.10.1/junit-platform-commons-1.10.1.jar:/home/codespace/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/home/codespace/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.10.1/junit-jupiter-engine-5.10.1.jar:/home/codespace/.m2/repository/org/junit/platform/junit-platform-engine/1.10.1/junit-platform-engine-1.10.1.jar:/home/codespace/.m2/repository/org/junit/platform/junit-platform-launcher/1.10.1/junit-platform-launcher-1.10.1.jar:/home/codespace/.m2/repository/org/junit/jupiter/junit-jupiter/5.10.0/junit-jupiter-5.10.0.jar:/home/codespace/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.10.0/junit-jupiter-params-5.10.0.jar:/home/codespace/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib/2.2.10/kotlin-stdlib-2.2.10.jar:/home/codespace/.m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar:/home/codespace/.m2/repository/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.10.2/kotlinx-coroutines-core-1.10.2.jar:/home/codespace/.m2/repository/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.10.2/kotlinx-coroutines-core-jvm-1.10.2.jar:"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -26,7 +26,7 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
-    <property name="surefire.real.class.path" value="/workspaces/KSecureVPN/target/surefire/surefirebooter18047680495354023083.jar"/>
+    <property name="surefire.real.class.path" value="/workspaces/KSecureVPN/target/surefire/surefirebooter6091435979313414326.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.7+6-LTS"/>
     <property name="user.name" value="codespace"/>
@@ -53,7 +53,7 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="readFully times out when provided" classname="StreamUtilsTest" time="0.149"/>
-  <testcase name="readFully returns less on EOF" classname="StreamUtilsTest" time="0.017"/>
+  <testcase name="readFully times out when provided" classname="StreamUtilsTest" time="0.14"/>
+  <testcase name="readFully returns less on EOF" classname="StreamUtilsTest" time="0.016"/>
   <testcase name="readFully reads across partial chunks" classname="StreamUtilsTest" time="0.002"/>
 </testsuite>

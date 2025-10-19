@@ -62,12 +62,21 @@ class TunnelServer(
             val ok = authService.authenticate(username, password)
             if (!ok) {
                 println("Authentication failed for user='$username' from ${socket.inetAddress}")
+                // Send authentication failure response
+                socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_FAILED))
+                socket.getOutputStream().flush()
                 socket.close()
                 return
             }
             println("Authentication success for user='$username' from ${socket.inetAddress}")
+            // Send authentication success response
+            socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_SUCCESS))
+            socket.getOutputStream().flush()
         } else {
             println("Malformed auth payload from ${socket.inetAddress}")
+            // Send malformed request response
+            socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_MALFORMED))
+            socket.getOutputStream().flush()
             socket.close()
             return
         }
@@ -101,6 +110,10 @@ class TunnelServer(
                 continue
             }
             println("Received: ${plain.decodeToString()}")
+            
+            // Send message acknowledgment
+            socket.getOutputStream().write(byteArrayOf(ResponseCode.MSG_RECEIVED))
+            socket.getOutputStream().flush()
         }
         socket.close()
     }
