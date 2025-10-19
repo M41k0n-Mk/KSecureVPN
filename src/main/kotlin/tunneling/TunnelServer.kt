@@ -118,8 +118,6 @@ class TunnelServer(
         socket.close()
     }
 
-    // readFully moved to tunneling.StreamUtils
-
     private fun ByteArray.toInt(): Int =
         ((this[0].toInt() and 0xFF) shl 24) or
                 ((this[1].toInt() and 0xFF) shl 16) or

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="MainTest" time="0.052" tests="3" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="NoKeyPrintTest" time="0.103" tests="1" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -53,7 +53,5 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="loadKeyFrom accepts valid 32 byte base64 key" classname="MainTest" time="0.031"/>
-  <testcase name="loadKeyFrom rejects non base64 input" classname="MainTest" time="0.002"/>
-  <testcase name="loadKeyFrom rejects key with wrong length" classname="MainTest" time="0.001"/>
+  <testcase name="generated key not printed to stdout" classname="NoKeyPrintTest" time="0.101"/>
 </testsuite>
