@@ -3,7 +3,6 @@ package auth.utils
 import auth.AuthService
 
 fun main(args: Array<String>) {
-
     if (args.size < 2 || args[0] != "create-user") {
         println("Usage: create-user <username>")
         return

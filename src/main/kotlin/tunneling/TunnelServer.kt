@@ -6,53 +6,62 @@ import kotlinx.coroutines.*
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
-import javax.crypto.SecretKey
 import javax.crypto.BadPaddingException
 import javax.crypto.IllegalBlockSizeException
+import javax.crypto.SecretKey
 
 class TunnelServer(
     private val port: Int = 9000,
     private val key: SecretKey,
-    private val authService: AuthService = AuthService()
+    private val authService: AuthService = AuthService(),
 ) {
-    fun start() = runBlocking {
-        val server = ServerSocket(port, 0, InetAddress.getByName("127.0.0.1"))
-        println("Server listening on port $port")
-        while (true) {
-            val client = server.accept()
-            launch(Dispatchers.IO) {
-                handleClient(client)
+    fun start() =
+        runBlocking {
+            val server = ServerSocket(port, 0, InetAddress.getByName("127.0.0.1"))
+            println("Server listening on port $port")
+            while (true) {
+                val client = server.accept()
+                launch(Dispatchers.IO) {
+                    handleClient(client)
+                }
             }
         }
-    }
 
     private suspend fun handleClient(socket: Socket) {
         println("Client connected: ${socket.inetAddress}")
-    val reader = socket.getInputStream()
+        val reader = socket.getInputStream()
 
         // Read first frame -> authentication
         val iv = ByteArray(16)
         val ivRead = readFully(reader, iv, logPrefix = "SERVER-AUTH")
         if (ivRead < iv.size) {
-            socket.close(); return
+            socket.close()
+            return
         }
 
         val lengthBytes = ByteArray(4)
         val lenRead = readFully(reader, lengthBytes, logPrefix = "SERVER-AUTH")
-        if (lenRead < lengthBytes.size) { socket.close(); return }
+        if (lenRead < lengthBytes.size) {
+            socket.close()
+            return
+        }
         val cipherLength = lengthBytes.toInt()
 
         val cipherText = ByteArray(cipherLength)
         val ctRead = readFully(reader, cipherText, logPrefix = "SERVER-AUTH")
-        if (ctRead < cipherText.size) { socket.close(); return }
-
-        val plainAuth = try {
-            AESCipher.decrypt(cipherText, key, iv)
-        } catch (ex: Exception) {
-            println("Decryption failed during auth for ${socket.inetAddress}: ${ex.message}")
+        if (ctRead < cipherText.size) {
             socket.close()
             return
         }
+
+        val plainAuth =
+            try {
+                AESCipher.decrypt(cipherText, key, iv)
+            } catch (ex: Exception) {
+                println("Decryption failed during auth for ${socket.inetAddress}: ${ex.message}")
+                socket.close()
+                return
+            }
 
         val authStr = plainAuth.decodeToString()
         val lines = authStr.split('\n')
@@ -96,21 +105,22 @@ class TunnelServer(
             val ctRead2 = readFully(reader, cipherText2, logPrefix = "SERVER-MSG")
             if (ctRead2 < cipherText2.size) break
 
-            val plain = try {
-                AESCipher.decrypt(cipherText2, key, ivMsg)
-            } catch (ex: Exception) {
-                when (ex) {
-                    is BadPaddingException, is IllegalBlockSizeException -> {
-                        println("Decryption failed: possible key mismatch.")
+            val plain =
+                try {
+                    AESCipher.decrypt(cipherText2, key, ivMsg)
+                } catch (ex: Exception) {
+                    when (ex) {
+                        is BadPaddingException, is IllegalBlockSizeException -> {
+                            println("Decryption failed: possible key mismatch.")
+                        }
+                        else -> {
+                            println("Decryption failed: ${ex.message}")
+                        }
                     }
-                    else -> {
-                        println("Decryption failed: ${ex.message}")
-                    }
+                    continue
                 }
-                continue
-            }
             println("Received: ${plain.decodeToString()}")
-            
+
             // Send message acknowledgment
             socket.getOutputStream().write(byteArrayOf(ResponseCode.MSG_RECEIVED))
             socket.getOutputStream().flush()
@@ -120,7 +130,7 @@ class TunnelServer(
 
     private fun ByteArray.toInt(): Int =
         ((this[0].toInt() and 0xFF) shl 24) or
-                ((this[1].toInt() and 0xFF) shl 16) or
-                ((this[2].toInt() and 0xFF) shl 8) or
-                (this[3].toInt() and 0xFF)
+            ((this[1].toInt() and 0xFF) shl 16) or
+            ((this[2].toInt() and 0xFF) shl 8) or
+            (this[3].toInt() and 0xFF)
 }
