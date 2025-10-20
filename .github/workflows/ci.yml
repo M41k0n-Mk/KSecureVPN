@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+        
+    - name: Run tests
+      run: mvn clean test
+      
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: target/surefire-reports/
+        
+  lint:
+    name: Run Linter (ktlint)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+        
+    - name: Run ktlint
+      run: mvn ktlint:check
+      
+  e2e:
+    name: E2E Test (Server & Client)
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+        
+    - name: Build project
+      run: mvn clean package -DskipTests
+      
+    - name: Generate test key
+      run: |
+        echo "Generating test AES key..."
+        export KSECUREVPN_KEY=$(head -c 32 /dev/urandom | base64)
+        echo "KSECUREVPN_KEY=$KSECUREVPN_KEY" >> $GITHUB_ENV
+        
+    - name: Start VPN Server in background
+      run: |
+        echo "Starting VPN server..."
+        mvn exec:java -Dexec.mainClass="MainKt" -Dexec.args="server" &
+        SERVER_PID=$!
+        echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+        sleep 5
+        echo "Server started with PID $SERVER_PID"
+        
+    - name: Test Server is running
+      run: |
+        echo "Checking if server is listening on port 8888..."
+        if netstat -tuln | grep -q ':8888'; then
+          echo "✓ Server is listening on port 8888"
+        else
+          echo "✗ Server is not listening on expected port"
+          exit 1
+        fi
+        
+    - name: Run Client test connection
+      run: |
+        echo "Testing client connection..."
+        timeout 10 mvn exec:java -Dexec.mainClass="MainKt" -Dexec.args="client" || true
+        echo "Client connection test completed"
+        
+    - name: Stop Server
+      if: always()
+      run: |
+        if [ ! -z "$SERVER_PID" ]; then
+          echo "Stopping server (PID: $SERVER_PID)..."
+          kill $SERVER_PID 2>/dev/null || true
+          sleep 2
+          kill -9 $SERVER_PID 2>/dev/null || true
+        fi

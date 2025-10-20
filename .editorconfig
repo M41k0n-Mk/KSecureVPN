@@ -1,0 +1,7 @@
+[*.{kt,kts}]
+# Disable wildcard import rule as it's widely used in the codebase
+ktlint_standard_no-wildcard-imports = disabled
+# Disable filename rule to allow existing naming conventions
+ktlint_standard_filename = disabled
+# Set max line length to be more lenient
+max_line_length = 160

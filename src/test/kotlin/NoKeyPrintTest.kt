@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 
 class NoKeyPrintTest {
-
     @Test
     fun `generated key not printed to stdout`() {
         val originalOut = System.out
