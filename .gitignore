@@ -4,6 +4,9 @@
 # Log file
 *.log
 
+# Log directory with sensitive information
+logs/
+
 # BlueJ files
 *.ctxt
 

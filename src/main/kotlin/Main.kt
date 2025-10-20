@@ -1,4 +1,6 @@
 import crypt.AESCipher
+import logging.LogConfig
+import logging.SecureLogger
 import tunneling.TunnelClient
 import tunneling.TunnelServer
 import java.nio.file.Files
@@ -67,7 +69,35 @@ fun loadKeyFrom(envKey: String?): SecretKey {
 
 fun loadKey(): SecretKey = loadKeyFrom(System.getenv("KSECUREVPN_KEY"))
 
+/**
+ * Configure secure logging based on environment variables.
+ */
+fun configureLogging() {
+    val loggingEnabled = System.getenv("KSECUREVPN_LOGGING_ENABLED")?.toBoolean() ?: true
+    val logDirectory = System.getenv("KSECUREVPN_LOG_DIR") ?: "logs"
+    val logFileName = System.getenv("KSECUREVPN_LOG_FILE") ?: "ksecurevpn.log"
+    val maxLogSizeMB = System.getenv("KSECUREVPN_LOG_MAX_SIZE_MB")?.toLongOrNull() ?: 10L
+    val includeStackTraces = System.getenv("KSECUREVPN_LOG_STACK_TRACES")?.toBoolean() ?: true
+
+    val config = LogConfig(
+        enabled = loggingEnabled,
+        logDirectory = logDirectory,
+        logFileName = logFileName,
+        maxLogSizeBytes = maxLogSizeMB * 1024 * 1024,
+        includeStackTraces = includeStackTraces
+    )
+    
+    SecureLogger.configure(config)
+    
+    if (loggingEnabled) {
+        println("Secure logging enabled: logs will be written to $logDirectory/$logFileName")
+    } else {
+        println("Secure logging disabled")
+    }
+}
+
 fun main(args: Array<String>) {
+    configureLogging()
     val key: SecretKey = loadKey()
     val mode =
         if (args.isNotEmpty()) {
