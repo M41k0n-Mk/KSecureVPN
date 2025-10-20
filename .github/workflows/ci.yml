@@ -95,11 +95,11 @@ jobs:
         
     - name: Test Server is running
       run: |
-        echo "Checking if server is listening on port 8888..."
-        if netstat -tuln | grep -q ':8888'; then
-          echo "✓ Server is listening on port 8888"
+        echo "Checking if server is listening on 127.0.0.1:9000..."
+        if netstat -tuln | grep -q '127.0.0.1:9000'; then
+          echo "✓ Server is listening on 127.0.0.1:9000"
         else
-          echo "✗ Server is not listening on expected port"
+          echo "✗ Server is not listening on expected address and port"
           exit 1
         fi
         
