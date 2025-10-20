@@ -13,6 +13,8 @@ KSecureVPN is an open-source VPN solution developed in Kotlin, designed for lear
 - **Basic Tunneling:** Establishes secure client-server communication using TCP sockets, encapsulating IP packets.
 - **Encryption:** Implements AES-based encryption to protect data in transit.
 - **Simple Authentication:** Supports username/password authentication to restrict access.
+- **Session Tracking:** Each connection is assigned a unique session ID for debugging and audit purposes.
+- **Secure Logging:** Detailed debug logs with decryption error tracking, protected from unauthorized access. Console output remains generic and safe.
 - **Modular Design:** Organized in clear modules: networking, cryptography, authentication, configuration.
 - **Cross-platform:** Runs on any JVM-supported system (Linux, Windows, macOS).
 
@@ -44,7 +46,8 @@ KSecureVPN is intended primarily for educational and personal use. It is not a r
 ## Getting Started
 
 - Clone the repository
-- Build with Gradle/Maven
+- Build with Maven: `mvn clean install`
+- Configure logging (optional): See [docs/LOGGING.md](src/main/kotlin/docs/LOGGING.md)
 - Run the server and client from CLI
 - Follow documentation for configuration and usage examples
 
