@@ -79,16 +79,17 @@ fun configureLogging() {
     val maxLogSizeMB = System.getenv("KSECUREVPN_LOG_MAX_SIZE_MB")?.toLongOrNull() ?: 10L
     val includeStackTraces = System.getenv("KSECUREVPN_LOG_STACK_TRACES")?.toBoolean() ?: true
 
-    val config = LogConfig(
-        enabled = loggingEnabled,
-        logDirectory = logDirectory,
-        logFileName = logFileName,
-        maxLogSizeBytes = maxLogSizeMB * 1024 * 1024,
-        includeStackTraces = includeStackTraces
-    )
-    
+    val config =
+        LogConfig(
+            enabled = loggingEnabled,
+            logDirectory = logDirectory,
+            logFileName = logFileName,
+            maxLogSizeBytes = maxLogSizeMB * 1024 * 1024,
+            includeStackTraces = includeStackTraces,
+        )
+
     SecureLogger.configure(config)
-    
+
     if (loggingEnabled) {
         println("Secure logging enabled: logs will be written to $logDirectory/$logFileName")
     } else {

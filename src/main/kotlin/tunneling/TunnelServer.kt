@@ -9,8 +9,6 @@ import session.SessionTracker
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
-import javax.crypto.BadPaddingException
-import javax.crypto.IllegalBlockSizeException
 import javax.crypto.SecretKey
 
 class TunnelServer(
@@ -33,15 +31,15 @@ class TunnelServer(
     private suspend fun handleClient(socket: Socket) {
         val sessionId = SessionTracker.createSession(socket.inetAddress.toString())
         val logger = SecureLogger.getInstance()
-        
+
         println("Client connected: ${socket.inetAddress} [Session: $sessionId]")
         logger.logSessionEvent(
             sessionId = sessionId,
             level = LogLevel.INFO,
             message = "Client connected",
-            details = mapOf("remoteAddress" to socket.inetAddress.toString())
+            details = mapOf("remoteAddress" to socket.inetAddress.toString()),
         )
-        
+
         val reader = socket.getInputStream()
 
         // Read first frame -> authentication
@@ -81,11 +79,12 @@ class TunnelServer(
                     sessionId = sessionId,
                     context = "Authentication phase",
                     error = ex,
-                    additionalInfo = mapOf(
-                        "remoteAddress" to socket.inetAddress.toString(),
-                        "cipherTextLength" to cipherLength.toString(),
-                        "ivLength" to iv.size.toString()
-                    )
+                    additionalInfo =
+                        mapOf(
+                            "remoteAddress" to socket.inetAddress.toString(),
+                            "cipherTextLength" to cipherLength.toString(),
+                            "ivLength" to iv.size.toString(),
+                        ),
                 )
                 SessionTracker.endSession(sessionId)
                 socket.close()
@@ -104,7 +103,7 @@ class TunnelServer(
                     sessionId = sessionId,
                     level = LogLevel.WARN,
                     message = "Authentication failed - invalid credentials",
-                    details = mapOf("username" to username, "remoteAddress" to socket.inetAddress.toString())
+                    details = mapOf("username" to username, "remoteAddress" to socket.inetAddress.toString()),
                 )
                 // Send authentication failure response
                 socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_FAILED))
@@ -118,7 +117,7 @@ class TunnelServer(
                 sessionId = sessionId,
                 level = LogLevel.INFO,
                 message = "Authentication successful",
-                details = mapOf("username" to username)
+                details = mapOf("username" to username),
             )
             // Send authentication success response
             socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_SUCCESS))
@@ -129,7 +128,7 @@ class TunnelServer(
                 sessionId = sessionId,
                 level = LogLevel.WARN,
                 message = "Malformed authentication payload",
-                details = mapOf("remoteAddress" to socket.inetAddress.toString())
+                details = mapOf("remoteAddress" to socket.inetAddress.toString()),
             )
             // Send malformed request response
             socket.getOutputStream().write(byteArrayOf(ResponseCode.AUTH_MALFORMED))
@@ -162,10 +161,11 @@ class TunnelServer(
                         sessionId = sessionId,
                         context = "Message decryption",
                         error = ex,
-                        additionalInfo = mapOf(
-                            "cipherTextLength" to cipherLength2.toString(),
-                            "ivLength" to ivMsg.size.toString()
-                        )
+                        additionalInfo =
+                            mapOf(
+                                "cipherTextLength" to cipherLength2.toString(),
+                                "ivLength" to ivMsg.size.toString(),
+                            ),
                     )
                     continue
                 }
@@ -174,19 +174,19 @@ class TunnelServer(
                 sessionId = sessionId,
                 level = LogLevel.DEBUG,
                 message = "Message received and decrypted",
-                details = mapOf("messageLength" to plain.size.toString())
+                details = mapOf("messageLength" to plain.size.toString()),
             )
 
             // Send message acknowledgment
             socket.getOutputStream().write(byteArrayOf(ResponseCode.MSG_RECEIVED))
             socket.getOutputStream().flush()
         }
-        
+
         logger.logSessionEvent(
             sessionId = sessionId,
             level = LogLevel.INFO,
             message = "Session ended",
-            details = mapOf("remoteAddress" to socket.inetAddress.toString())
+            details = mapOf("remoteAddress" to socket.inetAddress.toString()),
         )
         SessionTracker.endSession(sessionId)
         socket.close()

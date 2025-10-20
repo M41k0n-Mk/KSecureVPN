@@ -1,6 +1,5 @@
 package logging
 
-import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -10,7 +9,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 /**
@@ -67,25 +65,26 @@ class SecureLogger(
         }
 
         // Detailed log entry for protected file
-        val logEntry = buildString {
-            appendLine("[$formattedTime] [ERROR] [Session: $sessionId]")
-            appendLine("Context: $context")
-            appendLine("Error Type: ${error.javaClass.name}")
-            appendLine("Error Message: ${error.message}")
-            if (config.includeStackTraces) {
-                appendLine("Stack Trace:")
-                error.stackTrace.take(10).forEach { frame ->
-                    appendLine("  at $frame")
+        val logEntry =
+            buildString {
+                appendLine("[$formattedTime] [ERROR] [Session: $sessionId]")
+                appendLine("Context: $context")
+                appendLine("Error Type: ${error.javaClass.name}")
+                appendLine("Error Message: ${error.message}")
+                if (config.includeStackTraces) {
+                    appendLine("Stack Trace:")
+                    error.stackTrace.take(10).forEach { frame ->
+                        appendLine("  at $frame")
+                    }
                 }
-            }
-            if (additionalInfo.isNotEmpty()) {
-                appendLine("Additional Info:")
-                additionalInfo.forEach { (key, value) ->
-                    appendLine("  $key: $value")
+                if (additionalInfo.isNotEmpty()) {
+                    appendLine("Additional Info:")
+                    additionalInfo.forEach { (key, value) ->
+                        appendLine("  $key: $value")
+                    }
                 }
+                appendLine("---")
             }
-            appendLine("---")
-        }
 
         writeToLogFile(logEntry)
     }
@@ -106,17 +105,18 @@ class SecureLogger(
         val timestamp = Instant.now()
         val formattedTime = dateFormatter.format(timestamp)
 
-        val logEntry = buildString {
-            appendLine("[$formattedTime] [${level.name}] [Session: $sessionId]")
-            appendLine("Message: $message")
-            if (details.isNotEmpty()) {
-                appendLine("Details:")
-                details.forEach { (key, value) ->
-                    appendLine("  $key: $value")
+        val logEntry =
+            buildString {
+                appendLine("[$formattedTime] [${level.name}] [Session: $sessionId]")
+                appendLine("Message: $message")
+                if (details.isNotEmpty()) {
+                    appendLine("Details:")
+                    details.forEach { (key, value) ->
+                        appendLine("  $key: $value")
+                    }
                 }
+                appendLine("---")
             }
-            appendLine("---")
-        }
 
         writeToLogFile(logEntry)
     }

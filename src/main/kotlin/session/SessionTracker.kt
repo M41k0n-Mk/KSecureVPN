@@ -16,11 +16,12 @@ object SessionTracker {
      */
     fun createSession(remoteAddress: String): String {
         val sessionId = generateSessionId()
-        val sessionInfo = SessionInfo(
-            sessionId = sessionId,
-            remoteAddress = remoteAddress,
-            createdAt = System.currentTimeMillis(),
-        )
+        val sessionInfo =
+            SessionInfo(
+                sessionId = sessionId,
+                remoteAddress = remoteAddress,
+                createdAt = System.currentTimeMillis(),
+            )
         sessions[sessionId] = sessionInfo
         return sessionId
     }
