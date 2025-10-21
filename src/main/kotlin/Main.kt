@@ -1,3 +1,4 @@
+import config.ConfigLoader
 import crypt.AESCipher
 import logging.LogConfig
 import logging.SecureLogger
@@ -100,24 +101,38 @@ fun configureLogging() {
 fun main(args: Array<String>) {
     configureLogging()
     val key: SecretKey = loadKey()
+    // Parse simple CLI-style flags before the mode: --bind=, --port=, --allowed=, --config=
+    val cliMap = mutableMapOf<String, String>()
+    val argList = args.toMutableList()
+    // collect flags at the beginning (starting with --)
+    while (argList.isNotEmpty() && argList[0].startsWith("--")) {
+        val flag = argList.removeAt(0)
+        val parts = flag.removePrefix("--").split('=', limit = 2)
+        if (parts.size == 2) cliMap[parts[0]] = parts[1]
+    }
+
     val mode =
-        if (args.isNotEmpty()) {
-            args[0]
+        if (argList.isNotEmpty()) {
+            argList[0]
         } else {
-            println("Escolha o modo:")
-            println("[1] Server")
-            println("[2] Client")
-            print("Digite 1 ou 2: ")
-            when (readlnOrNull()) {
-                "1" -> "server"
-                "2" -> "client"
-                else -> ""
+            run {
+                println("Escolha o modo:")
+                println("[1] Server")
+                println("[2] Client")
+                print("Digite 1 ou 2: ")
+                when (readlnOrNull()) {
+                    "1" -> "server"
+                    "2" -> "client"
+                    else -> ""
+                }
             }
         }
 
+    val cfg = ConfigLoader.load(cliMap)
+
     when (mode) {
-        "server" -> TunnelServer(key = key).start()
-        "client" -> TunnelClient(key = key).connect()
+        "server" -> TunnelServer(cfg.serverConfig, key).start()
+        "client" -> TunnelClient(cfg.clientConfig, key).connect()
         else -> println("Usage: server | client")
     }
 }
