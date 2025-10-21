@@ -24,23 +24,24 @@ class TunnelServer(
     // Backward compatibility constructor
     @Deprecated("Use ServerConfig constructor", ReplaceWith("TunnelServer(ServerConfig(bindAddress, port, allowedCidrs), key, authService)"))
     constructor(
-        bindAddress: String = "127.0.0.1", 
-        port: Int = 9000, 
-        key: SecretKey, 
+        bindAddress: String = "127.0.0.1",
+        port: Int = 9000,
+        key: SecretKey,
         authService: AuthService = AuthService(),
-        allowedCidrs: List<String> = emptyList()
+        allowedCidrs: List<String> = emptyList(),
     ) : this(ServerConfig(bindAddress, port, allowedCidrs), key, authService)
+
     fun start() =
         runBlocking {
             val server = createServerSocket()
             println("Server listening on ${config.bindAddress}:${config.port}")
-            
+
             while (true) {
                 val client = server.accept()
-                
+
                 if (isClientAllowed(client)) {
-                    launch(Dispatchers.IO) { 
-                        handleClient(client) 
+                    launch(Dispatchers.IO) {
+                        handleClient(client)
                     }
                 } else {
                     println("Rejected connection from ${client.inetAddress.hostAddress}: not in allowlist")
@@ -49,8 +50,7 @@ class TunnelServer(
             }
         }
 
-    private fun createServerSocket(): ServerSocket =
-        ServerSocket(config.port, 0, InetAddress.getByName(config.bindAddress))
+    private fun createServerSocket(): ServerSocket = ServerSocket(config.port, 0, InetAddress.getByName(config.bindAddress))
 
     private fun isClientAllowed(client: Socket): Boolean {
         val remoteAddress = client.inetAddress.hostAddress

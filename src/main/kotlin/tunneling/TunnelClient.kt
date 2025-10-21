@@ -15,8 +15,9 @@ class TunnelClient(
 ) {
     // Backward compatibility constructor
     @Deprecated("Use ClientConfig constructor", ReplaceWith("TunnelClient(ClientConfig(host, port), key)"))
-    constructor(host: String = "127.0.0.1", port: Int = 9000, key: SecretKey) : 
+    constructor(host: String = "127.0.0.1", port: Int = 9000, key: SecretKey) :
         this(ClientConfig(host, port), key)
+
     fun connect() =
         runBlocking {
             val startTime = System.currentTimeMillis()
@@ -26,14 +27,14 @@ class TunnelClient(
             println("[CLIENT] Connected to server: ${socket.inetAddress.hostAddress}")
 
             val credentials = collectCredentials()
-            
+
             socket.use { conn ->
                 val authResult = authenticateWithServer(conn, credentials)
                 if (!authResult) return@runBlocking
-                
+
                 handleMessageExchange(conn)
             }
-            
+
             val totalTime = System.currentTimeMillis() - startTime
             println("[CLIENT] Session completed in ${totalTime}ms")
         }
@@ -46,17 +47,20 @@ class TunnelClient(
         return UserCredentials(username, password)
     }
 
-    private suspend fun authenticateWithServer(socket: Socket, credentials: UserCredentials): Boolean {
+    private suspend fun authenticateWithServer(
+        socket: Socket,
+        credentials: UserCredentials,
+    ): Boolean {
         println("[CLIENT] Preparing authentication for user: ${credentials.username}")
-        
+
         val authPayload = credentials.toAuthPayload()
         val authStartTime = System.currentTimeMillis()
-        
+
         return runCatching {
             sendEncryptedData(socket, authPayload)
             val authSentTime = System.currentTimeMillis()
             println("[CLIENT] Authentication sent in ${authSentTime - authStartTime}ms")
-            
+
             handleAuthResponse(socket)
         }.getOrElse { ex ->
             println("[CLIENT] ❌ Authentication timeout or error: ${ex.message}")
@@ -67,32 +71,32 @@ class TunnelClient(
     private suspend fun handleAuthResponse(socket: Socket): Boolean {
         val responseBuffer = ByteArray(1)
         val bytesRead = readFully(socket.getInputStream(), responseBuffer, timeoutMillis = 5000, logPrefix = "CLIENT-AUTH-RESPONSE")
-        
+
         return when {
             bytesRead <= 0 -> {
                 println("[CLIENT] ❌ No authentication response received")
                 false
             }
-            else -> when (val responseCode = responseBuffer[0]) {
-                ResponseCode.AUTH_SUCCESS -> {
-                    println("[CLIENT] ✅ Authentication SUCCESS")
-                    true
+            else ->
+                when (val responseCode = responseBuffer[0]) {
+                    ResponseCode.AUTH_SUCCESS -> {
+                        println("[CLIENT] ✅ Authentication SUCCESS")
+                        true
+                    }
+                    ResponseCode.AUTH_FAILED -> {
+                        println("[CLIENT] ❌ Authentication FAILED - Invalid credentials")
+                        false
+                    }
+                    ResponseCode.AUTH_MALFORMED -> {
+                        println("[CLIENT] ❌ Authentication FAILED - Malformed request")
+                        false
+                    }
+                    else -> {
+                        println("[CLIENT] ⚠️ Unknown authentication response: $responseCode")
+                        false
+                    }
                 }
-                ResponseCode.AUTH_FAILED -> {
-                    println("[CLIENT] ❌ Authentication FAILED - Invalid credentials")
-                    false
-                }
-                ResponseCode.AUTH_MALFORMED -> {
-                    println("[CLIENT] ❌ Authentication FAILED - Malformed request")
-                    false
-                }
-                else -> {
-                    println("[CLIENT] ⚠️ Unknown authentication response: $responseCode")
-                    false
-                }
-            }
         }
-
     }
 
     private suspend fun handleMessageExchange(socket: Socket) {
@@ -126,7 +130,10 @@ class TunnelClient(
         }
     }
 
-    private suspend fun sendEncryptedData(socket: Socket, data: ByteArray) {
+    private suspend fun sendEncryptedData(
+        socket: Socket,
+        data: ByteArray,
+    ) {
         val (cipherText, iv) = AESCipher.encrypt(data, key)
         val totalSize = cipherText.size + iv.size + 4
         println("[CLIENT] Sending encrypted data ($totalSize bytes total)")
@@ -153,12 +160,13 @@ class TunnelClient(
  */
 private data class UserCredentials(
     val username: String,
-    val password: String
+    val password: String,
 ) {
-    fun toAuthPayload(): ByteArray = buildString {
-        append("AUTH\n")
-        append(username)
-        append('\n')
-        append(password)
-    }.toByteArray()
+    fun toAuthPayload(): ByteArray =
+        buildString {
+            append("AUTH\n")
+            append(username)
+            append('\n')
+            append(password)
+        }.toByteArray()
 }

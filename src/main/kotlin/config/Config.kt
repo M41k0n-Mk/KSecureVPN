@@ -15,27 +15,27 @@ data class Config(
     /**
      * Server configuration with validated binding.
      */
-    val serverConfig: ServerConfig by lazy { 
-        ServerConfig(bindAddress, port, allowedCidrs) 
+    val serverConfig: ServerConfig by lazy {
+        ServerConfig(bindAddress, port, allowedCidrs)
     }
-    
+
     /**
      * Client configuration for connecting to server.
      */
-    val clientConfig: ClientConfig by lazy { 
-        ClientConfig(bindAddress, port) 
+    val clientConfig: ClientConfig by lazy {
+        ClientConfig(bindAddress, port)
     }
 }
 
 data class ServerConfig(
     val bindAddress: String,
-    val port: Int, 
-    val allowedCidrs: List<String>
+    val port: Int,
+    val allowedCidrs: List<String>,
 )
 
 data class ClientConfig(
     val targetHost: String,
-    val targetPort: Int
+    val targetPort: Int,
 )
 
 /**
@@ -47,11 +47,11 @@ object ConfigLoader {
      */
     fun load(cliArgs: Map<String, String> = emptyMap()): Config {
         val configSources = ConfigSources.from(cliArgs)
-        
+
         return Config(
             bindAddress = configSources.getValidatedBindAddress(),
             port = configSources.getValidatedPort(),
-            allowedCidrs = configSources.getParsedAllowedCidrs()
+            allowedCidrs = configSources.getParsedAllowedCidrs(),
         )
     }
 }
@@ -62,41 +62,42 @@ object ConfigLoader {
 private class ConfigSources(
     private val cli: Map<String, String>,
     private val env: Map<String, String>,
-    private val fileProps: Properties
+    private val fileProps: Properties,
 ) {
     companion object {
         private const val DEFAULT_BIND = "127.0.0.1"
         private const val DEFAULT_PORT = 9000
-        
+
         fun from(cliArgs: Map<String, String>): ConfigSources {
             val env = System.getenv()
             val fileProps = loadConfigFile(cliArgs, env)
             return ConfigSources(cliArgs, env, fileProps)
         }
-        
-        private fun loadConfigFile(cli: Map<String, String>, env: Map<String, String>): Properties {
+
+        private fun loadConfigFile(
+            cli: Map<String, String>,
+            env: Map<String, String>,
+        ): Properties {
             val configPath = cli["config"] ?: env["KSECUREVPN_CONFIG"]
             return configPath?.let { path ->
-                runCatching { 
-                    Properties().apply { 
-                        FileInputStream(path).use(::load) 
-                    } 
+                runCatching {
+                    Properties().apply {
+                        FileInputStream(path).use(::load)
+                    }
                 }.getOrElse { Properties() }
             } ?: Properties()
         }
     }
-    
-    private fun lookup(key: String): String? = 
-        cli[key] ?: env[key] ?: env["KSECUREVPN_${key.uppercase()}"] ?: fileProps.getProperty(key)
-    
+
+    private fun lookup(key: String): String? = cli[key] ?: env[key] ?: env["KSECUREVPN_${key.uppercase()}"] ?: fileProps.getProperty(key)
+
     fun getValidatedBindAddress(): String {
         val bind = lookup("bind") ?: DEFAULT_BIND
         return if (bind.isValidInetAddress()) bind else DEFAULT_BIND
     }
-    
-    fun getValidatedPort(): Int = 
-        lookup("port")?.toIntOrNull()?.takeIf { it in 1..65535 } ?: DEFAULT_PORT
-    
+
+    fun getValidatedPort(): Int = lookup("port")?.toIntOrNull()?.takeIf { it in 1..65535 } ?: DEFAULT_PORT
+
     fun getParsedAllowedCidrs(): List<String> {
         val allowedRaw = lookup("allowed") ?: ""
         return allowedRaw.splitToSequence(',')
@@ -104,7 +105,6 @@ private class ConfigSources(
             .filter(String::isNotEmpty)
             .toList()
     }
-    
-    private fun String.isValidInetAddress(): Boolean = 
-        runCatching { InetAddress.getByName(this) }.isSuccess
+
+    private fun String.isValidInetAddress(): Boolean = runCatching { InetAddress.getByName(this) }.isSuccess
 }
