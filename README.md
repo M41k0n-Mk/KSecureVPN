@@ -51,6 +51,65 @@ KSecureVPN is intended primarily for educational and personal use. It is not a r
 - Run the server and client from CLI
 - Follow documentation for configuration and usage examples
 
+## Configuration
+
+You can configure bind address, port and allowed client IPs using environment variables, an optional config file, or CLI flags. Recommended secure defaults bind the server to loopback (127.0.0.1) and use explicit allowlists where needed.
+
+Environment variables:
+- `KSECUREVPN_BIND`: bind address (default: `127.0.0.1`)
+- `KSECUREVPN_PORT`: port (default: `9000`)
+- `KSECUREVPN_ALLOWED_IPS`: comma-separated list of allowed IPs or CIDRs (e.g. `192.168.1.0/24,10.0.0.5`). Empty means allow all — prefer explicit values in production.
+- `KSECUREVPN_CONFIG`: optional path to a properties file with keys `bind`, `port`, `allowed` matching the same semantics.
+
+CLI flags (place before the mode argument):
+- `--bind=ADDRESS`
+- `--port=PORT`
+- `--allowed=CSV`
+- `--config=/path/to/file`
+
+Examples:
+- Start server bound to loopback (default):
+	`java -jar ksecurevpn.jar server`
+- Start server on all interfaces (not recommended):
+	`java -jar ksecurevpn.jar --bind=0.0.0.0 --port=9000 server`
+- Start with allowed CIDR:
+	`java -jar ksecurevpn.jar --allowed=192.168.1.0/24 server`
+
+Security note: defaults are intentionally conservative. Prefer binding to `127.0.0.1` or a dedicated interface and set `KSECUREVPN_ALLOWED_IPS` to explicit IPs/CIDRs in production.
+
+## Understanding IP Allowlist
+
+The `KSECUREVPN_ALLOWED_IPS` controls **which client IPs can connect** to your VPN server. This is an access control layer that works **before authentication**.
+
+### How it works:
+1. Client tries to connect → Server checks client's source IP
+2. If IP is in allowlist → Connection accepted, proceed to authentication
+3. If IP is NOT in allowlist → Connection rejected immediately
+
+### Practical Example - AWS Server:
+```bash
+# Server running on AWS EC2 (public IP: 54.123.45.67)
+export KSECUREVPN_BIND="0.0.0.0"                    # Listen on all interfaces
+export KSECUREVPN_PORT="9000"                       # Port 9000
+export KSECUREVPN_ALLOWED_IPS="189.45.67.0/24,203.45.123.89"  # Allow these client IPs
+java -jar ksecurevpn.jar server
+
+# Your computer (IP: 189.45.67.89) connecting to the server
+java -jar ksecurevpn.jar --bind=54.123.45.67 --port=9000 client
+```
+
+### Common Scenarios:
+- **Corporate**: `"203.45.67.0/24,198.51.100.0/24"` (office networks only)
+- **Personal**: `"189.45.123.89,177.67.89.123"` (home and work IPs)
+- **Development**: `""` (empty = allow all, but bind to 127.0.0.1 by default)
+
+Discover your public IP: `curl ifconfig.me`
+
+### Security Benefits:
+- **Defense in depth**: Even with stolen credentials, attacker needs allowed IP
+- **Reduce attacks**: Blocks brute force attempts from unauthorized IPs  
+- **Performance**: Rejects invalid connections immediately
+
 ## License
 
 MIT License. See LICENSE file for details.

@@ -1,6 +1,8 @@
 package tunneling
 
 import auth.AuthService
+import config.IpAllowlist
+import config.ServerConfig
 import crypt.AESCipher
 import kotlinx.coroutines.*
 import logging.LogLevel
@@ -11,22 +13,49 @@ import java.net.ServerSocket
 import java.net.Socket
 import javax.crypto.SecretKey
 
+/**
+ * Secure tunnel server with idiomatic Kotlin design and IPv6 support.
+ */
 class TunnelServer(
-    private val port: Int = 9000,
+    private val config: ServerConfig,
     private val key: SecretKey,
     private val authService: AuthService = AuthService(),
 ) {
+    // Backward compatibility constructor
+    @Deprecated("Use ServerConfig constructor", ReplaceWith("TunnelServer(ServerConfig(bindAddress, port, allowedCidrs), key, authService)"))
+    constructor(
+        bindAddress: String = "127.0.0.1", 
+        port: Int = 9000, 
+        key: SecretKey, 
+        authService: AuthService = AuthService(),
+        allowedCidrs: List<String> = emptyList()
+    ) : this(ServerConfig(bindAddress, port, allowedCidrs), key, authService)
     fun start() =
         runBlocking {
-            val server = ServerSocket(port, 0, InetAddress.getByName("127.0.0.1"))
-            println("Server listening on port $port")
+            val server = createServerSocket()
+            println("Server listening on ${config.bindAddress}:${config.port}")
+            
             while (true) {
                 val client = server.accept()
-                launch(Dispatchers.IO) {
-                    handleClient(client)
+                
+                if (isClientAllowed(client)) {
+                    launch(Dispatchers.IO) { 
+                        handleClient(client) 
+                    }
+                } else {
+                    println("Rejected connection from ${client.inetAddress.hostAddress}: not in allowlist")
+                    client.close()
                 }
             }
         }
+
+    private fun createServerSocket(): ServerSocket =
+        ServerSocket(config.port, 0, InetAddress.getByName(config.bindAddress))
+
+    private fun isClientAllowed(client: Socket): Boolean {
+        val remoteAddress = client.inetAddress.hostAddress
+        return IpAllowlist.isAllowed(remoteAddress, config.allowedCidrs)
+    }
 
     private suspend fun handleClient(socket: Socket) {
         val sessionId = SessionTracker.createSession(socket.inetAddress.toString())
