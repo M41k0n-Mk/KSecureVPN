@@ -7,6 +7,7 @@ import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
 class AuthService(private val usersFile: Path = Paths.get("config", "users.properties")) {
+
     private val users = ConcurrentHashMap<String, UserRecord>()
 
     init {

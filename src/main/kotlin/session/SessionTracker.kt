@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Each client connection gets a unique session ID for tracking and logging purposes.
  */
 object SessionTracker {
+
     private val sessions = ConcurrentHashMap<String, SessionInfo>()
 
     /**
@@ -24,6 +25,12 @@ object SessionTracker {
             )
         sessions[sessionId] = sessionInfo
         return sessionId
+    }
+
+    private fun generateSessionId(): String {
+        val uuid = UUID.randomUUID().toString().substring(0, 8)
+        val timestamp = System.currentTimeMillis().toString().takeLast(6)
+        return "sess-$timestamp-$uuid"
     }
 
     /**
@@ -43,13 +50,6 @@ object SessionTracker {
      */
     fun getActiveSessions(): List<SessionInfo> = sessions.values.toList()
 
-    private fun generateSessionId(): String {
-        // Generate a compact but unique session ID
-        // Format: timestamp-uuid (first 8 chars of UUID for brevity)
-        val uuid = UUID.randomUUID().toString().substring(0, 8)
-        val timestamp = System.currentTimeMillis().toString().takeLast(6)
-        return "sess-$timestamp-$uuid"
-    }
 }
 
 /**
