@@ -15,6 +15,59 @@ import javax.crypto.SecretKey
  * Load key from environment, validating that when provided the value is base64
  * of exactly 32 bytes. For testing, use [loadKeyFrom].
  */
+
+fun main(args: Array<String>) {
+    configureLogging()
+    val key: SecretKey = loadKey()
+    val mode =
+        if (args.isNotEmpty()) {
+            args[0]
+        } else {
+            println("Escolha o modo:")
+            println("[1] Server")
+            println("[2] Client")
+            print("Digite 1 ou 2: ")
+            when (readlnOrNull()) {
+                "1" -> "server"
+                "2" -> "client"
+                else -> ""
+            }
+        }
+
+    when (mode) {
+        "server" -> TunnelServer(key = key).start()
+        "client" -> TunnelClient(key = key).connect()
+        else -> println("Usage: server | client")
+    }
+}
+
+fun configureLogging() {
+    val loggingEnabled = System.getenv("KSECUREVPN_LOGGING_ENABLED")?.toBoolean() ?: true
+    val logDirectory = System.getenv("KSECUREVPN_LOG_DIR") ?: "logs"
+    val logFileName = System.getenv("KSECUREVPN_LOG_FILE") ?: "ksecurevpn.log"
+    val maxLogSizeMB = System.getenv("KSECUREVPN_LOG_MAX_SIZE_MB")?.toLongOrNull() ?: 10L
+    val includeStackTraces = System.getenv("KSECUREVPN_LOG_STACK_TRACES")?.toBoolean() ?: true
+
+    val config =
+        LogConfig(
+            enabled = loggingEnabled,
+            logDirectory = logDirectory,
+            logFileName = logFileName,
+            maxLogSizeBytes = maxLogSizeMB * 1024 * 1024,
+            includeStackTraces = includeStackTraces,
+        )
+
+    SecureLogger.configure(config)
+
+    if (loggingEnabled) {
+        println("Secure logging enabled: logs will be written to $logDirectory/$logFileName")
+    } else {
+        println("Secure logging disabled")
+    }
+}
+
+fun loadKey(): SecretKey = loadKeyFrom(System.getenv("KSECUREVPN_KEY"))
+
 fun loadKeyFrom(envKey: String?): SecretKey {
     return if (envKey != null) {
         try {
@@ -49,7 +102,9 @@ fun loadKeyFrom(envKey: String?): SecretKey {
                 Files.write(out, keyB64.toByteArray(Charsets.UTF_8))
             }
 
-            println("No key printed for security. A development key was written to './ksecurevpn.key' with restrictive permissions.")
+            println(
+                    "No key printed for security. A development key was written to './ksecurevpn.key' with restrictive permissions."
+            )
             println(
                 "To use this key, set environment variable KSECUREVPN_KEY to the base64 contents of that file or move it to your secrets manager.",
             )
@@ -64,60 +119,5 @@ fun loadKeyFrom(envKey: String?): SecretKey {
         }
 
         generated
-    }
-}
-
-fun loadKey(): SecretKey = loadKeyFrom(System.getenv("KSECUREVPN_KEY"))
-
-/**
- * Configure secure logging based on environment variables.
- */
-fun configureLogging() {
-    val loggingEnabled = System.getenv("KSECUREVPN_LOGGING_ENABLED")?.toBoolean() ?: true
-    val logDirectory = System.getenv("KSECUREVPN_LOG_DIR") ?: "logs"
-    val logFileName = System.getenv("KSECUREVPN_LOG_FILE") ?: "ksecurevpn.log"
-    val maxLogSizeMB = System.getenv("KSECUREVPN_LOG_MAX_SIZE_MB")?.toLongOrNull() ?: 10L
-    val includeStackTraces = System.getenv("KSECUREVPN_LOG_STACK_TRACES")?.toBoolean() ?: true
-
-    val config =
-        LogConfig(
-            enabled = loggingEnabled,
-            logDirectory = logDirectory,
-            logFileName = logFileName,
-            maxLogSizeBytes = maxLogSizeMB * 1024 * 1024,
-            includeStackTraces = includeStackTraces,
-        )
-
-    SecureLogger.configure(config)
-
-    if (loggingEnabled) {
-        println("Secure logging enabled: logs will be written to $logDirectory/$logFileName")
-    } else {
-        println("Secure logging disabled")
-    }
-}
-
-fun main(args: Array<String>) {
-    configureLogging()
-    val key: SecretKey = loadKey()
-    val mode =
-        if (args.isNotEmpty()) {
-            args[0]
-        } else {
-            println("Escolha o modo:")
-            println("[1] Server")
-            println("[2] Client")
-            print("Digite 1 ou 2: ")
-            when (readlnOrNull()) {
-                "1" -> "server"
-                "2" -> "client"
-                else -> ""
-            }
-        }
-
-    when (mode) {
-        "server" -> TunnelServer(key = key).start()
-        "client" -> TunnelClient(key = key).connect()
-        else -> println("Usage: server | client")
     }
 }
