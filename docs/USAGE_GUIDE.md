@@ -180,5 +180,4 @@ See GitHub Issues for specific implementation tasks:
 
 ## Conclusion
 
-KSecureVPN gives you a working foundation for understanding VPN internals and creating secure peer-to-peer networks. It's perfect for learning, experimentation, and building custom networking solutions. With additional development, it can become a full-featured VPN for internet access.</content>
-<parameter name="filePath">/workspaces/KSecureVPN/docs/ARCHITECTURE.md
+KSecureVPN gives you a working foundation for understanding VPN internals and creating secure peer-to-peer networks. It's perfect for learning, experimentation, and building custom networking solutions. With additional development, it can become a full-featured VPN for internet access.

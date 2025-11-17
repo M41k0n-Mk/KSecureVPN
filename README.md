@@ -95,6 +95,7 @@ The project follows a layered architecture for clarity and extensibility:
 - `AUTHENTICATION.md` - Authentication system details
 - `LOGGING.md` - Logging configuration and security
 - `VPN_TUN_SETUP.md` - VPN tunneling setup guide
+- `USAGE_GUIDE.md` - Complete usage guide and development roadmap
 
 #### `logging/` - Logging System
 - `SecureLogger.kt` - Secure logging with file protection
@@ -139,10 +140,10 @@ KSecureVPN is intended primarily for educational and personal use. It is not a r
 
 ## Documentation
 
-- [Architecture & Communication](docs/ARCHITECTURE.md) - How the VPN works and current capabilities
-- [Authentication](src/main/kotlin/docs/AUTHENTICATION.md) - User authentication and credential management
-- [Logging](src/main/kotlin/docs/LOGGING.md) - Secure logging and session tracking
-- [VPN Setup](src/main/kotlin/docs/VPN_TUN_SETUP.md) - Virtual interface and tunneling configuration
+- [Usage Guide & Roadmap](docs/USAGE_GUIDE.md) - How to use KSecureVPN today and development roadmap
+- [Authentication](docs/AUTHENTICATION.md) - User authentication and credential management
+- [Logging](docs/LOGGING.md) - Secure logging and session tracking
+- [VPN Setup](docs/VPN_TUN_SETUP.md) - Virtual interface and tunneling configuration
 
 ## Running Tests
 
