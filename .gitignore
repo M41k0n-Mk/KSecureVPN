@@ -34,3 +34,17 @@ target/
 
 # Generated key file (security)
 ksecurevpn.key
+
+# Test output logs
+*_output.log
+
+# Coverage reports
+kover/
+
+# IDE files
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
