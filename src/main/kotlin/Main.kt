@@ -1,6 +1,10 @@
+import auth.AuthService
 import crypt.AESCipher
 import logging.LogConfig
 import logging.SecureLogger
+import tunneling.vpn.VpnClient
+import tunneling.vpn.VpnServer
+import tunneling.vpn.stub.MemoryTun
 import java.nio.file.Files
 import java.nio.file.OpenOption
 import java.nio.file.Paths
@@ -23,10 +27,14 @@ fun main(args: Array<String>) {
         } else {
             println("Modos disponíveis:")
             println("[1] VPN Demo (troca de pacotes IP)")
-            println("[2] Sair")
-            print("Digite 1 ou 2: ")
+            println("[2] Iniciar Servidor VPN")
+            println("[3] Conectar Cliente VPN")
+            println("[4] Sair")
+            print("Digite 1-4: ")
             when (readlnOrNull()) {
                 "1" -> "vpn-demo"
+                "2" -> "server"
+                "3" -> "client"
                 else -> ""
             }
         }
@@ -38,7 +46,28 @@ fun main(args: Array<String>) {
             // Como não podemos importar aqui, sugerir executar separado
             println("Por favor, execute: kotlin VpnDemoKt")
         }
-        else -> println("Modo inválido. Use 'vpn-demo' ou execute VpnDemo diretamente.")
+        "server" -> {
+            println("Iniciando servidor VPN na porta 9001...")
+            val authService = AuthService()
+            authService.addUser("test", "password".toCharArray())
+            val server = VpnServer(port = 9001, key = key, authService = authService)
+            server.start()
+        }
+        "client" -> {
+            println("Conectando cliente VPN ao localhost:9001...")
+            val tun = MemoryTun("test-tun")
+            val client =
+                VpnClient(
+                    serverHost = "127.0.0.1",
+                    serverPort = 9001,
+                    key = key,
+                    username = "test",
+                    password = "password".toCharArray(),
+                    vInterface = tun,
+                )
+            client.start()
+        }
+        else -> println("Modo inválido. Use 'vpn-demo', 'server' ou 'client'.")
     }
 }
 
