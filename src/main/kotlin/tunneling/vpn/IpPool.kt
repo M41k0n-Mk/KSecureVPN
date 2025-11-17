@@ -3,8 +3,8 @@ package tunneling.vpn
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Simple IPv4 pool allocator for a /24 like 10.8.0.0/24.
@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 class IpPool(cidrBase: String = "10.8.0.0", private val prefixLen: Int = 24, reserveGateway: Boolean = true) {
     private val network: Int
     private val mask: Int
-    private val free = ConcurrentLinkedQueue<Int>()
+    private val free = ConcurrentSkipListSet<Int>()
     private val inUse = ConcurrentHashMap.newKeySet<Int>()
 
     init {
@@ -31,7 +31,7 @@ class IpPool(cidrBase: String = "10.8.0.0", private val prefixLen: Int = 24, res
     }
 
     fun allocate(): Inet4Address? {
-        val ip = free.poll() ?: return null
+        val ip = free.pollFirst() ?: return null
         inUse.add(ip)
         return intToInet4(ip)
     }

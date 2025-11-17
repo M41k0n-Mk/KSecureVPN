@@ -18,7 +18,10 @@ object AESCipher {
         return keyGen.generateKey()
     }
 
-    fun keyFromBytes(bytes: ByteArray): SecretKey = SecretKeySpec(bytes, AES_ALGORITHM)
+    fun keyFromBytes(bytes: ByteArray): SecretKey {
+        require(bytes.size == 32) { "AES key must be exactly 32 bytes (256 bits)" }
+        return SecretKeySpec(bytes, AES_ALGORITHM)
+    }
 
     fun encrypt(
         plain: ByteArray,
