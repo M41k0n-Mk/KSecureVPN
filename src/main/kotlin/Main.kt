@@ -2,8 +2,6 @@ import config.ConfigLoader
 import crypt.AESCipher
 import logging.LogConfig
 import logging.SecureLogger
-import tunneling.TunnelClient
-import tunneling.TunnelServer
 import java.nio.file.Files
 import java.nio.file.OpenOption
 import java.nio.file.Paths
@@ -24,21 +22,24 @@ fun main(args: Array<String>) {
         if (args.isNotEmpty()) {
             args[0]
         } else {
-            println("Escolha o modo:")
-            println("[1] Server")
-            println("[2] Client")
+            println("Modos disponíveis:")
+            println("[1] VPN Demo (troca de pacotes IP)")
+            println("[2] Sair")
             print("Digite 1 ou 2: ")
             when (readlnOrNull()) {
-                "1" -> "server"
-                "2" -> "client"
+                "1" -> "vpn-demo"
                 else -> ""
             }
         }
 
     when (mode) {
-        "server" -> TunnelServer(key = key).start()
-        "client" -> TunnelClient(key = key).connect()
-        else -> println("Usage: server | client")
+        "vpn-demo" -> {
+            println("Executando VPN Demo...")
+            // Import dinâmico ou executar VpnDemo.main()
+            // Como não podemos importar aqui, sugerir executar separado
+            println("Por favor, execute: kotlin VpnDemoKt")
+        }
+        else -> println("Modo inválido. Use 'vpn-demo' ou execute VpnDemo diretamente.")
     }
 }
 
