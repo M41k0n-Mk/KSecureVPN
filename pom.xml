@@ -87,6 +87,9 @@
                 <version>3.6.2</version>
                 <configuration>
                     <mainClass>MainKt</mainClass>
+                    <arguments>
+                        <argument>${exec.args}</argument>
+                    </arguments>
                 </configuration>
             </plugin>
             <plugin>

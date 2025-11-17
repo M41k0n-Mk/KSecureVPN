@@ -87,7 +87,7 @@ jobs:
     - name: Start VPN Server in background
       run: |
         echo "Starting VPN server..."
-        mvn exec:java -Dexec.mainClass="MainKt" -Dexec.args="server" &
+        KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="server" &
         SERVER_PID=$!
         echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
         sleep 5
@@ -106,7 +106,7 @@ jobs:
     - name: Run Client test connection
       run: |
         echo "Testing client connection..."
-        timeout 10 mvn exec:java -Dexec.mainClass="MainKt" -Dexec.args="client" || true
+        timeout 10 KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" || true
         echo "Client connection test completed"
         
     - name: Stop Server
