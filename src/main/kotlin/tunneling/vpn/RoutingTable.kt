@@ -11,7 +11,10 @@ class RoutingTable {
 
     private val routes = ConcurrentHashMap<Int, Entry>()
 
-    fun add(ipInt: Int, sender: (ByteArray, Int) -> Unit) {
+    fun add(
+        ipInt: Int,
+        sender: (ByteArray, Int) -> Unit,
+    ) {
         routes[ipInt] = Entry(ipInt, sender)
     }
 

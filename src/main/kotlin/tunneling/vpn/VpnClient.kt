@@ -28,72 +28,84 @@ class VpnClient(
 ) {
     private val logger = SecureLogger.getInstance()
 
-    fun start() = runBlocking {
-        val socket = Socket(serverHost, serverPort)
-        val input = socket.getInputStream()
-        val out = socket.getOutputStream()
+    fun start() =
+        runBlocking {
+            val socket = Socket(serverHost, serverPort)
+            val input = socket.getInputStream()
+            val out = socket.getOutputStream()
 
-        // Send AUTH reusing existing scheme (IV + LEN + CIPHERTEXT). Plaintext starts with "AUTH\n".
-        val authPayload = buildString {
-            append("AUTH\n")
-            append(username)
-            append('\n')
-            append(password.concatToString())
-        }.toByteArray()
-        val (authCipher, authIv) = AESCipher.encrypt(authPayload, key)
-        out.write(authIv)
-        out.write(authCipher.size.toBytes())
-        out.write(authCipher)
-        out.flush()
+            // Send AUTH reusing existing scheme (IV + LEN + CIPHERTEXT). Plaintext starts with "AUTH\n".
+            val authPayload =
+                buildString {
+                    append("AUTH\n")
+                    append(username)
+                    append('\n')
+                    append(password.concatToString())
+                }.toByteArray()
+            val (authCipher, authIv) = AESCipher.encrypt(authPayload, key)
+            out.write(authIv)
+            out.write(authCipher.size.toBytes())
+            out.write(authCipher)
+            out.flush()
 
-        // Read single-byte AUTH response
-        val authResp = ByteArray(1)
-        val r = readFully(input, authResp)
-        if (r < 1 || authResp[0] != tunneling.ResponseCode.AUTH_SUCCESS) {
-            socket.close()
-            throw IllegalStateException("Authentication failed or malformed.")
-        }
-
-        // Request an IP
-        PacketFramer.sendFrame(out, key, FrameType.CONTROL, byteArrayOf(ControlKind.IP_REQUEST))
-        val first = PacketFramer.readFrame(input, key) ?: error("No IP assignment received")
-        require(first.first == FrameType.CONTROL && first.second.isNotEmpty() && first.second[0] == ControlKind.IP_ASSIGN) {
-            "Unexpected first frame from server"
-        }
-        require(first.second.size >= 5) { "IP_ASSIGN payload too small" }
-        val ipInt = ((first.second[1].toInt() and 0xFF) shl 24) or ((first.second[2].toInt() and 0xFF) shl 16) or ((first.second[3].toInt() and 0xFF) shl 8) or (first.second[4].toInt() and 0xFF)
-        val assigned = IPv4.intToInet4(ipInt)
-        logger.logSessionEvent("vpn-client", LogLevel.INFO, "Assigned virtual IP ${assigned.hostAddress}")
-
-        // Start two loops: TUN->server and server->TUN
-        val scope = CoroutineScope(Dispatchers.IO)
-        val toServer: Job = scope.launch {
-            val buf = ByteArray(vInterface.mtu + 64)
-            while (isActive) {
-                val n = vInterface.readPacket(buf)
-                if (n <= 0) continue
-                if (n > 1500) continue // MTU/fragmentation: drop oversize for now
-                val payload = buf.copyOfRange(0, n)
-                PacketFramer.sendFrame(out, key, FrameType.PACKET, payload)
+            // Read single-byte AUTH response
+            val authResp = ByteArray(1)
+            val r = readFully(input, authResp)
+            if (r < 1 || authResp[0] != tunneling.ResponseCode.AUTH_SUCCESS) {
+                socket.close()
+                throw IllegalStateException("Authentication failed or malformed.")
             }
-        }
-        val toTun: Job = scope.launch {
-            while (isActive) {
-                val frame = PacketFramer.readFrame(input, key) ?: break
-                if (frame.first == FrameType.PACKET) {
-                    val p = frame.second
-                    if (p.size <= vInterface.mtu + 64) {
-                        vInterface.writePacket(p, p.size)
+
+            // Request an IP
+            PacketFramer.sendFrame(out, key, FrameType.CONTROL, byteArrayOf(ControlKind.IP_REQUEST))
+            val first = PacketFramer.readFrame(input, key) ?: error("No IP assignment received")
+            require(first.first == FrameType.CONTROL && first.second.isNotEmpty() && first.second[0] == ControlKind.IP_ASSIGN) {
+                "Unexpected first frame from server"
+            }
+            require(first.second.size >= 5) { "IP_ASSIGN payload too small" }
+            val ipInt =
+                ((first.second[1].toInt() and 0xFF) shl 24) or
+                    ((first.second[2].toInt() and 0xFF) shl 16) or
+                    ((first.second[3].toInt() and 0xFF) shl 8) or
+                    (first.second[4].toInt() and 0xFF)
+            val assigned = IPv4.intToInet4(ipInt)
+            logger.logSessionEvent(
+                "vpn-client",
+                LogLevel.INFO,
+                "Assigned virtual IP ${assigned.hostAddress}",
+            )
+
+            // Start two loops: TUN->server and server->TUN
+            val scope = CoroutineScope(Dispatchers.IO)
+            val toServer: Job =
+                scope.launch {
+                    val buf = ByteArray(vInterface.mtu + 64)
+                    while (isActive) {
+                        val n = vInterface.readPacket(buf)
+                        if (n <= 0) continue
+                        if (n > 1500) continue // MTU/fragmentation: drop oversize for now
+                        val payload = buf.copyOfRange(0, n)
+                        PacketFramer.sendFrame(out, key, FrameType.PACKET, payload)
                     }
                 }
-            }
-        }
+            val toTun: Job =
+                scope.launch {
+                    while (isActive) {
+                        val frame = PacketFramer.readFrame(input, key) ?: break
+                        if (frame.first == FrameType.PACKET) {
+                            val p = frame.second
+                            if (p.size <= vInterface.mtu + 64) {
+                                vInterface.writePacket(p, p.size)
+                            }
+                        }
+                    }
+                }
 
-        // On coroutine end
-        toServer.join()
-        toTun.cancelAndJoin()
-        socket.close()
-    }
+            // On coroutine end
+            toServer.join()
+            toTun.cancelAndJoin()
+            socket.close()
+        }
 }
 
 private fun Int.toBytes(): ByteArray =

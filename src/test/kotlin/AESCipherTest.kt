@@ -2,10 +2,8 @@ package crypt
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import javax.crypto.SecretKey
 
 class AESCipherTest {
-
     @Test
     fun `generateKey should create valid AES key`() {
         val key = AESCipher.generateKey()

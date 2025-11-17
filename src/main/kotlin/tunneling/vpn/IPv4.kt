@@ -5,7 +5,10 @@ import java.net.InetAddress
 
 object IPv4 {
     /** Returns header length in bytes from an IPv4 packet buffer, or -1 if invalid. */
-    fun headerLength(packet: ByteArray, length: Int): Int {
+    fun headerLength(
+        packet: ByteArray,
+        length: Int,
+    ): Int {
         if (length < 20) return -1
         val versionIhl = packet[0].toInt() and 0xFF
         val version = (versionIhl ushr 4) and 0xF
@@ -17,14 +20,20 @@ object IPv4 {
     }
 
     /** Extracts total length field from IPv4 header, or -1 if invalid. */
-    fun totalLength(packet: ByteArray, length: Int): Int {
+    fun totalLength(
+        packet: ByteArray,
+        length: Int,
+    ): Int {
         if (length < 4) return -1
         val tl = ((packet[2].toInt() and 0xFF) shl 8) or (packet[3].toInt() and 0xFF)
         return if (tl in 20..length) tl else -1
     }
 
     /** Returns IPv4 destination as Int (network byte order), or null if invalid. */
-    fun dstAsInt(packet: ByteArray, length: Int): Int? {
+    fun dstAsInt(
+        packet: ByteArray,
+        length: Int,
+    ): Int? {
         val ihl = headerLength(packet, length)
         if (ihl < 20) return null
         val off = 16
@@ -34,7 +43,10 @@ object IPv4 {
             (packet[off + 3].toInt() and 0xFF)
     }
 
-    fun srcAsInt(packet: ByteArray, length: Int): Int? {
+    fun srcAsInt(
+        packet: ByteArray,
+        length: Int,
+    ): Int? {
         val ihl = headerLength(packet, length)
         if (ihl < 20) return null
         val off = 12

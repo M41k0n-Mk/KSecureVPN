@@ -35,7 +35,10 @@ object PacketFramer {
     }
 
     /** Reads one frame plaintext. Returns Pair(type, payload) or null on EOF. */
-    suspend fun readFrame(input: InputStream, key: SecretKey): Pair<Byte, ByteArray>? {
+    suspend fun readFrame(
+        input: InputStream,
+        key: SecretKey,
+    ): Pair<Byte, ByteArray>? {
         val iv = ByteArray(16)
         val ivRead = readFully(input, iv)
         if (ivRead < iv.size) return null

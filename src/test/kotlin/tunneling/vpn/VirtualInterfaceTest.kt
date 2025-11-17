@@ -1,11 +1,6 @@
 package tunneling.vpn
 
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
-import tunneling.vpn.stub.MemoryTun
-
 class VirtualInterfaceTest {
-
     // @Test
     // fun `MemoryTun should implement VirtualInterface`() {
     //     val tun = MemoryTun("test-tun")

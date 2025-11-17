@@ -13,7 +13,7 @@ object FrameType {
 
 /** Control message kinds carried inside [FrameType.CONTROL] frames. */
 object ControlKind {
-    const val IP_REQUEST: Byte = 0x01   // client -> server: request virtual IP
-    const val IP_ASSIGN: Byte = 0x02    // server -> client: assign virtual IP (4 bytes IPv4)
-    const val KEEPALIVE: Byte = 0x03    // bidirectional keepalive
+    const val IP_REQUEST: Byte = 0x01 // client -> server: request virtual IP
+    const val IP_ASSIGN: Byte = 0x02 // server -> client: assign virtual IP (4 bytes IPv4)
+    const val KEEPALIVE: Byte = 0x03 // bidirectional keepalive
 }

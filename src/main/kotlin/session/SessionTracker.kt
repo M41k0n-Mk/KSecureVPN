@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap
  * Each client connection gets a unique session ID for tracking and logging purposes.
  */
 object SessionTracker {
-
     private val sessions = ConcurrentHashMap<String, SessionInfo>()
 
     /**
@@ -49,7 +48,6 @@ object SessionTracker {
      * Get all active sessions (for monitoring/debugging).
      */
     fun getActiveSessions(): List<SessionInfo> = sessions.values.toList()
-
 }
 
 /**

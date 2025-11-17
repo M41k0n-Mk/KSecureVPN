@@ -23,7 +23,10 @@ interface VirtualInterface : Closeable {
     fun readPacket(buffer: ByteArray): Int
 
     /** Write a raw IP packet to the interface (0..length bytes from [packet]). */
-    fun writePacket(packet: ByteArray, length: Int)
+    fun writePacket(
+        packet: ByteArray,
+        length: Int,
+    )
 
     override fun close()
 }

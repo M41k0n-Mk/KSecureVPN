@@ -1,7 +1,6 @@
 package tunneling.vpn
 
 import auth.AuthService
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -29,20 +28,30 @@ class VpnServer(
     private val ipPool = IpPool("10.8.0.0", 24, reserveGateway = true)
     private val routes = RoutingTable()
 
-    fun start() = runBlocking {
-        val server = ServerSocket(port, 0, InetAddress.getByName("0.0.0.0"))
-        println("[VPN-SERVER] Listening on $port (virtual network 10.8.0.0/24)")
-        while (true) {
-            val client = server.accept()
-            launch(Dispatchers.IO) {
-                handleClient(client)
+    fun start() =
+        runBlocking {
+            val server =
+                ServerSocket(
+                    port,
+                    0,
+                    InetAddress.getByName("0.0.0.0"),
+                )
+            println("[VPN-SERVER] Listening on $port (virtual network 10.8.0.0/24)")
+            while (true) {
+                val client = server.accept()
+                launch(Dispatchers.IO) {
+                    handleClient(client)
+                }
             }
         }
-    }
 
     private suspend fun handleClient(socket: Socket) {
         val sessionId = SessionTracker.createSession(socket.inetAddress.toString())
-        logger.logSessionEvent(sessionId, LogLevel.INFO, "VPN client connected")
+        logger.logSessionEvent(
+            sessionId,
+            LogLevel.INFO,
+            "VPN client connected",
+        )
         val input = socket.getInputStream()
         val out = socket.getOutputStream()
 
@@ -53,18 +62,28 @@ class VpnServer(
         val lenBytes = ByteArray(4)
         val lr = readFully(input, lenBytes)
         if (lr < 4) return closeSession(sessionId, socket)
-        val len = ((lenBytes[0].toInt() and 0xFF) shl 24) or ((lenBytes[1].toInt() and 0xFF) shl 16) or ((lenBytes[2].toInt() and 0xFF) shl 8) or (lenBytes[3].toInt() and 0xFF)
+        val len =
+            ((lenBytes[0].toInt() and 0xFF) shl 24) or
+                ((lenBytes[1].toInt() and 0xFF) shl 16) or
+                ((lenBytes[2].toInt() and 0xFF) shl 8) or
+                (lenBytes[3].toInt() and 0xFF)
         val cipher = ByteArray(len)
         val cr = readFully(input, cipher)
         if (cr < len) return closeSession(sessionId, socket)
 
         // Decrypt using AESCipher from existing stack
-        val plain = try {
-            crypt.AESCipher.decrypt(cipher, key, iv)
-        } catch (e: Exception) {
-            logger.logSessionEvent(sessionId, LogLevel.WARN, "Auth decrypt failed: ${e.message}")
-            return closeSession(sessionId, socket)
-        }
+        val plain =
+            try {
+                crypt.AESCipher.decrypt(cipher, key, iv)
+            } catch (e: Exception) {
+                logger.logSessionEvent(
+                    sessionId,
+                    LogLevel.WARN,
+                    "Auth decrypt failed: ${e.message}",
+                )
+
+                return closeSession(sessionId, socket)
+            }
         val s = plain.decodeToString()
         val parts = s.split('\n')
         if (parts.size < 3 || parts[0] != "AUTH") {
@@ -75,7 +94,8 @@ class VpnServer(
         }
         val username = parts[1]
         val password = parts[2].toCharArray()
-        val ok = authService.authenticate(username, password)
+        val ok =
+            authService.authenticate(username, password)
         if (!ok) {
             out.write(byteArrayOf(tunneling.ResponseCode.AUTH_FAILED))
             out.flush()
@@ -83,34 +103,51 @@ class VpnServer(
         }
         out.write(byteArrayOf(tunneling.ResponseCode.AUTH_SUCCESS))
         out.flush()
-        logger.logSessionEvent(sessionId, LogLevel.INFO, "VPN auth OK", mapOf("user" to username))
+        logger.logSessionEvent(
+            sessionId,
+            LogLevel.INFO,
+            "VPN auth OK",
+            mapOf("user" to username),
+        )
 
         // Expect CONTROL/IP_REQUEST
-        val first = PacketFramer.readFrame(input, key) ?: return closeSession(sessionId, socket)
+        val first =
+            PacketFramer.readFrame(input, key) ?: return closeSession(sessionId, socket)
         if (first.first != FrameType.CONTROL || first.second.isEmpty() || first.second[0] != ControlKind.IP_REQUEST) {
             return closeSession(sessionId, socket)
         }
 
-        val ip = ipPool.allocate() ?: run {
-            logger.logSessionEvent(sessionId, LogLevel.WARN, "IP pool exhausted")
-            return closeSession(sessionId, socket)
-        }
+        val ip =
+            ipPool.allocate() ?: run {
+                logger.logSessionEvent(
+                    sessionId,
+                    LogLevel.WARN,
+                    "IP pool exhausted",
+                )
+
+                return closeSession(sessionId, socket)
+            }
         val ipInt = IPv4.inet4ToInt(ip)
 
         // Register route: sender function uses PacketFramer with PACKET frames
-        routes.add(ipInt) { packet, length ->
+        routes.add(
+            ipInt,
+        ) { packet, length ->
             val payload = ByteArray(length)
             System.arraycopy(packet, 0, payload, 0, length)
-            runBlocking { PacketFramer.sendFrame(out, key, FrameType.PACKET, payload) }
+            runBlocking {
+                PacketFramer.sendFrame(out, key, FrameType.PACKET, payload)
+            }
         }
 
         // Send IP_ASSIGN (payload: 4 bytes IPv4)
-        val payload = byteArrayOf(
-            ((ipInt ushr 24) and 0xFF).toByte(),
-            ((ipInt ushr 16) and 0xFF).toByte(),
-            ((ipInt ushr 8) and 0xFF).toByte(),
-            (ipInt and 0xFF).toByte(),
-        )
+        val payload =
+            byteArrayOf(
+                ((ipInt ushr 24) and 0xFF).toByte(),
+                ((ipInt ushr 16) and 0xFF).toByte(),
+                ((ipInt ushr 8) and 0xFF).toByte(),
+                (ipInt and 0xFF).toByte(),
+            )
         PacketFramer.sendFrame(out, key, FrameType.CONTROL, byteArrayOf(ControlKind.IP_ASSIGN) + payload)
 
         // Main loop: read frames from this client
@@ -140,9 +177,19 @@ class VpnServer(
         closeSession(sessionId, socket)
     }
 
-    private fun closeSession(sessionId: String, socket: Socket) {
-        logger.logSessionEvent(sessionId, LogLevel.INFO, "VPN session ended")
+    private fun closeSession(
+        sessionId: String,
+        socket: Socket,
+    ) {
+        logger.logSessionEvent(
+            sessionId,
+            LogLevel.INFO,
+            "VPN session ended",
+        )
         SessionTracker.endSession(sessionId)
-        try { socket.close() } catch (_: Exception) {}
+        try {
+            socket.close()
+        } catch (_: Exception) {
+        }
     }
 }

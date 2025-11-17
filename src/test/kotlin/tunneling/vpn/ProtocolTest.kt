@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class ProtocolTest {
-
     @Test
     fun `FrameType should have correct values`() {
         assertEquals(0x10.toByte(), FrameType.CONTROL)

@@ -5,10 +5,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import kotlin.io.path.writeText
 
 class AuthServiceTest {
-
     @TempDir
     lateinit var tempDir: Path
 

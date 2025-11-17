@@ -1,4 +1,3 @@
-import config.ConfigLoader
 import crypt.AESCipher
 import logging.LogConfig
 import logging.SecureLogger
@@ -105,7 +104,7 @@ fun loadKeyFrom(envKey: String?): SecretKey {
             }
 
             println(
-                    "No key printed for security. A development key was written to './ksecurevpn.key' with restrictive permissions."
+                "No key printed for security. A development key was written to './ksecurevpn.key' with restrictive permissions.",
             )
             println(
                 "To use this key, set environment variable KSECUREVPN_KEY to the base64 contents of that file or move it to your secrets manager.",

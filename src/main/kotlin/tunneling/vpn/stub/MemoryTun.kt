@@ -16,7 +16,10 @@ class MemoryTun(override val name: String = "memtun0", override val mtu: Int = 1
         return n
     }
 
-    override fun writePacket(packet: ByteArray, length: Int) {
+    override fun writePacket(
+        packet: ByteArray,
+        length: Int,
+    ) {
         val bytes = ByteArray(length)
         System.arraycopy(packet, 0, bytes, 0, length)
         inbound.put(bytes)

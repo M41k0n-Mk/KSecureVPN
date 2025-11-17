@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class VpnServerTest {
-
     @Test
     fun `server should create with valid parameters`() {
         val key = AESCipher.generateKey()

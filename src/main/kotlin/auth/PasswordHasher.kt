@@ -7,7 +7,6 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
 object PasswordHasher {
-
     private const val DEFAULT_ITERATIONS = 100_000
     private const val KEY_LENGTH = 256
 

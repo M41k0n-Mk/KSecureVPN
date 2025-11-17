@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class PasswordHasherTest {
-
     @Test
     fun `hash should produce consistent results for same input`() {
         val salt = PasswordHasher.generateSalt()
