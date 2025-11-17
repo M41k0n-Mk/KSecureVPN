@@ -56,14 +56,15 @@ fun main(args: Array<String>) {
         "client" -> {
             println("Conectando cliente VPN ao localhost:9001...")
             val tun = MemoryTun("test-tun")
-            val client = VpnClient(
-                serverHost = "127.0.0.1",
-                serverPort = 9001,
-                key = key,
-                username = "test",
-                password = "password".toCharArray(),
-                vInterface = tun,
-            )
+            val client =
+                VpnClient(
+                    serverHost = "127.0.0.1",
+                    serverPort = 9001,
+                    key = key,
+                    username = "test",
+                    password = "password".toCharArray(),
+                    vInterface = tun,
+                )
             client.start()
         }
         else -> println("Modo inválido. Use 'vpn-demo', 'server' ou 'client'.")
