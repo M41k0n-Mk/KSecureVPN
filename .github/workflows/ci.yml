@@ -95,9 +95,9 @@ jobs:
         
     - name: Test Server is running
       run: |
-        echo "Checking if server is listening on 127.0.0.1:9000..."
-        if netstat -tuln | grep -q '127.0.0.1:9000'; then
-          echo "✓ Server is listening on 127.0.0.1:9000"
+        echo "Checking if server is listening on 127.0.0.1:9001..."
+        if netstat -tuln | grep -q '127.0.0.1:9001'; then
+          echo "✓ Server is listening on 127.0.0.1:9001"
         else
           echo "✗ Server is not listening on expected address and port"
           exit 1
