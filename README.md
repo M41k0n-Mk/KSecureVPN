@@ -10,11 +10,12 @@ KSecureVPN is an open-source VPN solution developed in Kotlin, designed for lear
 
 ## Features (MVP)
 
-- **Basic Tunneling:** Establishes secure client-server communication using TCP sockets, encapsulating IP packets.
-- **Encryption:** Implements AES-based encryption to protect data in transit.
-- **Simple Authentication:** Supports username/password authentication to restrict access.
-- **Session Tracking:** Each connection is assigned a unique session ID for debugging and audit purposes.
+- **VPN Tunneling:** Establishes secure VPN connections using TCP sockets, encapsulating IP packets.
+- **Encryption:** Implements AES-based encryption to protect all VPN traffic.
+- **Authentication:** Supports username/password authentication to restrict VPN access.
+- **Session Tracking:** Each VPN connection is assigned a unique session ID for debugging and audit purposes.
 - **Secure Logging:** Detailed debug logs with decryption error tracking, protected from unauthorized access. Console output remains generic and safe.
+- **IP Management:** Dynamic IP assignment from pools, routing table management.
 - **Modular Design:** Organized in clear modules: networking, cryptography, authentication, configuration.
 - **Cross-platform:** Runs on any JVM-supported system (Linux, Windows, macOS).
 
@@ -26,6 +27,64 @@ The project follows a layered architecture for clarity and extensibility:
 - **Networking Layer:** Manages socket connections, packet encapsulation, and transmission.
 - **Security Layer:** Handles encryption/decryption and authentication schemes.
 - **Interface Layer:** Provides CLI tools for configuration and usage.
+
+## Project Structure
+
+### Root Directory
+- `README.md` - This file with project overview and usage instructions
+- `pom.xml` - Maven build configuration with dependencies
+- `LICENSE` - MIT license
+- `scripts/` - Automation scripts (e.g., E2E tests)
+- `examples/` - Example code and demonstrations
+- `config/` - Configuration files (users.properties, etc.)
+
+### Source Code (`src/main/kotlin/`)
+- `Main.kt` - Application entry point with mode selection
+- `VpnDemo.kt` - Comprehensive VPN demonstration with packet exchange
+- `LoggingDemo.kt` - Logging and session tracking demonstration
+
+#### `auth/` - Authentication System
+- `AuthService.kt` - Core authentication service with user validation
+- `PasswordHasher.kt` - PBKDF2 password hashing implementation
+- `UserRecord.kt` - User data structures and parsing
+- `utils/UserTool.kt` - CLI utility for user management
+
+#### `config/` - Configuration Management
+- `Config.kt` - Configuration loading and validation
+- `IpAllowlist.kt` - IP address filtering and CIDR support
+
+#### `crypt/` - Cryptography
+- `AESCipher.kt` - AES encryption/decryption with IV handling
+
+#### `docs/` - Documentation
+- `AUTHENTICATION.md` - Authentication system details
+- `LOGGING.md` - Logging configuration and security
+- `VPN_TUN_SETUP.md` - VPN tunneling setup guide
+
+#### `logging/` - Logging System
+- `SecureLogger.kt` - Secure logging with file protection
+- `LogConfig.kt` - Logging configuration management
+
+#### `session/` - Session Management
+- `SessionTracker.kt` - Unique session ID generation and tracking
+
+#### `tunneling/` - Networking and Tunneling
+- `Utils.kt` - Shared utilities for stream operations
+- `vpn/` - VPN-specific components
+  - `VirtualInterface.kt` - Abstract interface for TUN/TAP devices
+  - `Protocol.kt` - VPN protocol frame definitions
+  - `PacketFramer.kt` - Packet framing over encrypted streams
+  - `IPv4.kt` - IPv4 packet parsing utilities
+  - `IpPool.kt` - IP address pool management
+  - `RoutingTable.kt` - VPN routing table implementation
+  - `VpnServer.kt` - VPN server with authentication and routing
+  - `VpnClient.kt` - VPN client with virtual interface support
+  - `stub/MemoryTun.kt` - In-memory TUN implementation for testing
+
+### Tests (`src/test/kotlin/`)
+- Unit tests for all major components
+- Integration tests for VPN functionality
+- Security-focused tests (no key printing, etc.)
 
 ## Why Kotlin?
 
@@ -43,39 +102,101 @@ Kotlin offers a modern, concise syntax, powerful concurrency primitives (corouti
 
 KSecureVPN is intended primarily for educational and personal use. It is not a replacement for production-grade VPNs, and does not guarantee protection against sophisticated attacks or fulfill enterprise security standards.
 
-## Getting Started
+## Documentation
 
-- Clone the repository
-- Build with Maven: `mvn clean install`
-- Configure logging (optional): See [docs/LOGGING.md](src/main/kotlin/docs/LOGGING.md)
-- Run the server and client from CLI
-- Follow documentation for configuration and usage examples
+- [Authentication](src/main/kotlin/docs/AUTHENTICATION.md) - User authentication and credential management
+- [Logging](src/main/kotlin/docs/LOGGING.md) - Secure logging and session tracking
+- [VPN Setup](src/main/kotlin/docs/VPN_TUN_SETUP.md) - Virtual interface and tunneling configuration
+
+## Running Tests
+
+Run unit tests:
+```bash
+mvn test
+```
+
+Generate test coverage report (HTML):
+```bash
+mvn kover:report-html
+```
+Report will be available at `target/site/kover/html/index.html`
+
+## Running End-to-End Tests
+
+An automated E2E test script is provided to verify the complete client-server communication flow:
+
+```bash
+./scripts/e2e-test.sh
+```
+
+This script will:
+- Generate a test encryption key
+- Set up environment variables
+- Start the server in the background
+- Run the client to send a test message
+- Verify successful message transmission
+- Clean up test artifacts
+
+The test validates authentication, encryption, and message exchange functionality.
 
 ## Configuration
 
-You can configure bind address, port and allowed client IPs using environment variables, an optional config file, or CLI flags. Recommended secure defaults bind the server to loopback (127.0.0.1) and use explicit allowlists where needed.
+KSecureVPN supports multiple configuration methods: environment variables, configuration files, and CLI flags. Environment variables take precedence, followed by config files, then defaults.
 
-Environment variables:
-- `KSECUREVPN_BIND`: bind address (default: `127.0.0.1`)
-- `KSECUREVPN_PORT`: port (default: `9000`)
-- `KSECUREVPN_ALLOWED_IPS`: comma-separated list of allowed IPs or CIDRs (e.g. `192.168.1.0/24,10.0.0.5`). Empty means allow all — prefer explicit values in production.
-- `KSECUREVPN_CONFIG`: optional path to a properties file with keys `bind`, `port`, `allowed` matching the same semantics.
+### Environment Variables
 
-CLI flags (place before the mode argument):
-- `--bind=ADDRESS`
-- `--port=PORT`
-- `--allowed=CSV`
-- `--config=/path/to/file`
+#### Core Configuration
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KSECUREVPN_KEY` | Generated | Base64-encoded 32-byte AES key (required) |
 
-Examples:
-- Start server bound to loopback (default):
-	`java -jar ksecurevpn.jar server`
-- Start server on all interfaces (not recommended):
-	`java -jar ksecurevpn.jar --bind=0.0.0.0 --port=9000 server`
-- Start with allowed CIDR:
-	`java -jar ksecurevpn.jar --allowed=192.168.1.0/24 server`
+#### Server Configuration
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KSECUREVPN_BIND` | `127.0.0.1` | Server bind address |
+| `KSECUREVPN_PORT` | `9000` | Server port |
+| `KSECUREVPN_ALLOWED_IPS` | (empty) | Comma-separated allowed IPs/CIDRs |
 
-Security note: defaults are intentionally conservative. Prefer binding to `127.0.0.1` or a dedicated interface and set `KSECUREVPN_ALLOWED_IPS` to explicit IPs/CIDRs in production.
+#### Logging Configuration
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KSECUREVPN_LOGGING_ENABLED` | `true` | Enable detailed logging |
+| `KSECUREVPN_LOG_DIR` | `logs` | Log directory path |
+| `KSECUREVPN_LOG_FILE` | `ksecurevpn.log` | Log filename |
+| `KSECUREVPN_LOG_MAX_SIZE_MB` | `10` | Max log file size in MB |
+| `KSECUREVPN_LOG_STACK_TRACES` | `true` | Include stack traces in logs |
+
+### Configuration Files
+
+#### users.properties
+Located in `config/users.properties`, stores user credentials in PBKDF2 format:
+```
+username=iterations:base64salt:base64hash
+```
+
+Use the `UserTool` to create users securely:
+```bash
+mvn exec:java -Dexec.mainClass="auth.utils.UserToolKt" -Dexec.args="create-user alice"
+```
+
+### CLI Flags
+
+The application supports CLI flags for configuration (not fully implemented in current Main.kt):
+- `--bind=ADDRESS` - Server bind address
+- `--port=PORT` - Server port
+- `--allowed=CSV` - Allowed IPs/CIDRs
+- `--config=PATH` - Path to config file
+
+### Key Management
+
+For security, keys are never printed. Generate a development key:
+```bash
+head -c 32 /dev/urandom | base64 | tee ksecurevpn.key
+chmod 600 ksecurevpn.key
+export KSECUREVPN_KEY=$(cat ksecurevpn.key)
+```
+
+For production, use a secrets manager (Vault, KMS) to inject `KSECUREVPN_KEY`.
 
 ## Understanding IP Allowlist
 
