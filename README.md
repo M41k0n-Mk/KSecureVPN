@@ -19,6 +19,41 @@ KSecureVPN is an open-source VPN solution developed in Kotlin, designed for lear
 - **Modular Design:** Organized in clear modules: networking, cryptography, authentication, configuration.
 - **Cross-platform:** Runs on any JVM-supported system (Linux, Windows, macOS).
 
+## Architecture & Communication
+
+KSecureVPN currently supports **encrypted peer-to-peer communication** between connected clients through a central server. While it provides a solid foundation for VPN development, it functions as a "VPN overlay network" rather than a full internet VPN.
+
+### Current Capabilities ✅
+- **Peer-to-Peer Communication**: Clients can exchange IP packets through the encrypted server
+- **Automatic IP Assignment**: Each client gets a unique IP from the 10.8.0.0/24 range
+- **Packet Routing**: Server maintains routing tables to forward packets between clients
+- **Authentication**: Username/password-based access control
+
+### Testing Communication
+```bash
+# Terminal 1: Start server
+export KSECUREVPN_KEY=$(head -c 32 /dev/urandom | base64)
+mvn exec:java -Dexec.args="server"
+
+# Terminal 2: Connect client Alice (gets 10.8.0.2)
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+
+# Terminal 3: Connect client Bob (gets 10.8.0.3)
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+```
+
+### What Works Today
+Clients connected to the same server can communicate with each other using their assigned VPN IPs. The server acts as an encrypted router, forwarding packets between clients.
+
+### Limitations for Full VPN 🔴
+- No real TUN interface (uses in-memory simulation)
+- No internet access through the VPN server
+- No automatic routing configuration
+- No DNS configuration
+- Basic security (shared AES key)
+
+📖 **[Usage Guide & Roadmap](docs/USAGE_GUIDE.md)** - How to use KSecureVPN today and development roadmap
+
 ## Architecture
 
 The project follows a layered architecture for clarity and extensibility:
@@ -104,6 +139,7 @@ KSecureVPN is intended primarily for educational and personal use. It is not a r
 
 ## Documentation
 
+- [Architecture & Communication](docs/ARCHITECTURE.md) - How the VPN works and current capabilities
 - [Authentication](src/main/kotlin/docs/AUTHENTICATION.md) - User authentication and credential management
 - [Logging](src/main/kotlin/docs/LOGGING.md) - Secure logging and session tracking
 - [VPN Setup](src/main/kotlin/docs/VPN_TUN_SETUP.md) - Virtual interface and tunneling configuration
