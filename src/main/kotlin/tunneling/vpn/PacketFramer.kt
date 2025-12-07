@@ -3,7 +3,6 @@ package tunneling.vpn
 import crypt.AESCipher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import tunneling.readFully
 import java.io.InputStream
 import java.io.OutputStream
 import javax.crypto.SecretKey
@@ -34,25 +33,58 @@ object PacketFramer {
         }
     }
 
-    /** Reads one frame plaintext. Returns Pair(type, payload) or null on EOF. */
+    /** Creates a framed message as byte array for UDP. */
+    fun createFrame(
+        type: Byte,
+        payload: ByteArray,
+        key: SecretKey,
+    ): ByteArray {
+        val plain = ByteArray(1 + payload.size)
+        plain[0] = type
+        System.arraycopy(payload, 0, plain, 1, payload.size)
+        val (cipher, iv) = AESCipher.encrypt(plain, key)
+        val frame = ByteArray(16 + 4 + cipher.size)
+        System.arraycopy(iv, 0, frame, 0, 16)
+        System.arraycopy(cipher.size.toBytes(), 0, frame, 16, 4)
+        System.arraycopy(cipher, 0, frame, 20, cipher.size)
+        return frame
+    }
+
+    /** Reads one frame from InputStream. Returns Pair(type, payload) or null on invalid. */
     suspend fun readFrame(
         input: InputStream,
         key: SecretKey,
     ): Pair<Byte, ByteArray>? {
         val iv = ByteArray(16)
-        val ivRead = readFully(input, iv)
-        if (ivRead < iv.size) return null
-
         val lenBytes = ByteArray(4)
-        val lRead = readFully(input, lenBytes)
-        if (lRead < 4) return null
+        withContext(Dispatchers.IO) {
+            if (input.read(iv) != 16) return@withContext null
+            if (input.read(lenBytes) != 4) return@withContext null
+        }
         val len = lenBytes.toInt()
         if (len <= 0 || len > 65540) return null
-
         val cipher = ByteArray(len)
-        val cRead = readFully(input, cipher)
-        if (cRead < len) return null
+        withContext(Dispatchers.IO) {
+            if (input.read(cipher) != len) return@withContext null
+        }
+        val plain = AESCipher.decrypt(cipher, key, iv)
+        if (plain.isEmpty()) return null
+        val type = plain[0]
+        val payload = plain.copyOfRange(1, plain.size)
+        return type to payload
+    }
 
+    /** Reads one frame from byte array. Returns Pair(type, payload) or null on invalid. */
+    fun readFrameFromBytes(
+        data: ByteArray,
+        key: SecretKey,
+    ): Pair<Byte, ByteArray>? {
+        if (data.size < 20) return null
+        val iv = data.copyOfRange(0, 16)
+        val lenBytes = data.copyOfRange(16, 20)
+        val len = lenBytes.toInt()
+        if (len <= 0 || len > 65540 || 20 + len > data.size) return null
+        val cipher = data.copyOfRange(20, 20 + len)
         val plain = AESCipher.decrypt(cipher, key, iv)
         if (plain.isEmpty()) return null
         val type = plain[0]
