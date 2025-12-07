@@ -7,6 +7,8 @@ package tunneling.vpn
  * The plaintext inside that ciphertext starts with a single byte [FrameType] followed by type-specific payload.
  */
 object FrameType {
+    const val AUTH: Byte = 0x01
+    const val AUTH_RESPONSE: Byte = 0x02
     const val CONTROL: Byte = 0x10
     const val PACKET: Byte = 0x11
 }

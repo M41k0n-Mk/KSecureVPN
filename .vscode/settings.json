@@ -1,0 +1,6 @@
+{
+    "java.home": "/usr/local/sdkman/candidates/java/current",
+    "kotlin.languageServer.enabled": true,
+    "kotlin.languageServer.path": "/usr/local/sdkman/candidates/java/current/bin/java"
+}</content>
+<parameter name="filePath">/workspaces/KSecureVPN/.vscode/settings.json

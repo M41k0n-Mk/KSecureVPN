@@ -34,25 +34,34 @@ object PacketFramer {
         }
     }
 
-    /** Reads one frame plaintext. Returns Pair(type, payload) or null on EOF. */
-    suspend fun readFrame(
-        input: InputStream,
+    /** Creates a framed message as byte array for UDP. */
+    fun createFrame(
+        type: Byte,
+        payload: ByteArray,
+        key: SecretKey,
+    ): ByteArray {
+        val plain = ByteArray(1 + payload.size)
+        plain[0] = type
+        System.arraycopy(payload, 0, plain, 1, payload.size)
+        val (cipher, iv) = AESCipher.encrypt(plain, key)
+        val frame = ByteArray(16 + 4 + cipher.size)
+        System.arraycopy(iv, 0, frame, 0, 16)
+        System.arraycopy(cipher.size.toBytes(), 0, frame, 16, 4)
+        System.arraycopy(cipher, 0, frame, 20, cipher.size)
+        return frame
+    }
+
+    /** Reads one frame from byte array. Returns Pair(type, payload) or null on invalid. */
+    fun readFrameFromBytes(
+        data: ByteArray,
         key: SecretKey,
     ): Pair<Byte, ByteArray>? {
-        val iv = ByteArray(16)
-        val ivRead = readFully(input, iv)
-        if (ivRead < iv.size) return null
-
-        val lenBytes = ByteArray(4)
-        val lRead = readFully(input, lenBytes)
-        if (lRead < 4) return null
+        if (data.size < 20) return null
+        val iv = data.copyOfRange(0, 16)
+        val lenBytes = data.copyOfRange(16, 20)
         val len = lenBytes.toInt()
-        if (len <= 0 || len > 65540) return null
-
-        val cipher = ByteArray(len)
-        val cRead = readFully(input, cipher)
-        if (cRead < len) return null
-
+        if (len <= 0 || len > 65540 || 20 + len > data.size) return null
+        val cipher = data.copyOfRange(20, 20 + len)
         val plain = AESCipher.decrypt(cipher, key, iv)
         if (plain.isEmpty()) return null
         val type = plain[0]
