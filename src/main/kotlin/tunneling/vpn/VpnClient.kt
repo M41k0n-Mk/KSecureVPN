@@ -1,6 +1,5 @@
 package tunneling.vpn
 
-import crypt.AESCipher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -10,7 +9,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logging.LogLevel
 import logging.SecureLogger
-import tunneling.readFully
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress

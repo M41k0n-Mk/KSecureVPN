@@ -3,7 +3,6 @@ package tunneling.vpn
 import crypt.AESCipher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import tunneling.readFully
 import java.io.InputStream
 import java.io.OutputStream
 import javax.crypto.SecretKey

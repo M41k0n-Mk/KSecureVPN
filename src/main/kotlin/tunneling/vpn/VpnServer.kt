@@ -7,7 +7,6 @@ import kotlinx.coroutines.runBlocking
 import logging.LogLevel
 import logging.SecureLogger
 import session.SessionTracker
-import tunneling.readFully
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -64,18 +63,21 @@ class VpnServer(
         val clientKey = "${packet.address}:${packet.port}"
         val data = packet.data.copyOfRange(0, packet.length)
 
-        val session = sessions.getOrPut(clientKey) {
-            val sessionId = SessionTracker.createSession(clientKey)
-            logger.logSessionEvent(sessionId, LogLevel.INFO, "New UDP session from $clientKey")
-            SessionData(packet.address, packet.port, sessionId)
-        }
+        val session =
+            sessions.getOrPut(clientKey) {
+                val sessionId = SessionTracker.createSession(clientKey)
+                logger.logSessionEvent(sessionId, LogLevel.INFO, "New UDP session from $clientKey")
+                SessionData(packet.address, packet.port, sessionId)
+            }
 
         try {
             // Try to read frame
-            val frame = PacketFramer.readFrameFromBytes(data, key) ?: run {
-                logger.logSessionEvent(session.sessionId, LogLevel.WARN, "Invalid frame from $clientKey")
-                return
-            }
+            val frame =
+                PacketFramer.readFrameFromBytes(data, key)
+                    ?: run {
+                        logger.logSessionEvent(session.sessionId, LogLevel.WARN, "Invalid frame from $clientKey")
+                        return
+                    }
 
             when (frame.first) {
                 FrameType.AUTH -> {
@@ -144,18 +146,21 @@ class VpnServer(
         if (payload.isEmpty()) return
         when (payload[0]) {
             ControlKind.IP_REQUEST -> {
-                val ip = ipPool.allocate() ?: run {
-                    logger.logSessionEvent(session.sessionId, LogLevel.WARN, "IP pool exhausted")
-                    return
-                }
+                val ip =
+                    ipPool.allocate()
+                        ?: run {
+                            logger.logSessionEvent(session.sessionId, LogLevel.WARN, "IP pool exhausted")
+                            return
+                        }
                 session.assignedIp = ip.hostAddress
                 val ipInt = IPv4.inet4ToInt(ip)
-                val responsePayload = byteArrayOf(
-                    ((ipInt ushr 24) and 0xFF).toByte(),
-                    ((ipInt ushr 16) and 0xFF).toByte(),
-                    ((ipInt ushr 8) and 0xFF).toByte(),
-                    (ipInt and 0xFF).toByte(),
-                )
+                val responsePayload =
+                    byteArrayOf(
+                        ((ipInt ushr 24) and 0xFF).toByte(),
+                        ((ipInt ushr 16) and 0xFF).toByte(),
+                        ((ipInt ushr 8) and 0xFF).toByte(),
+                        (ipInt and 0xFF).toByte(),
+                    )
                 sendFrame(socket, session, FrameType.CONTROL, byteArrayOf(ControlKind.IP_ASSIGN) + responsePayload)
                 routes.add(ipInt) { packet, length ->
                     runBlocking {
