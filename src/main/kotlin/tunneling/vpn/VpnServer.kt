@@ -53,6 +53,10 @@ class VpnServer(
             }
         }
 
+    /**
+     * Handles incoming UDP packets from clients.
+     * Parses frames, manages sessions, and routes packets accordingly.
+     */
     private fun handlePacket(
         socket: DatagramSocket,
         packet: DatagramPacket,
@@ -100,6 +104,10 @@ class VpnServer(
         }
     }
 
+    /**
+     * Processes authentication frames from clients.
+     * Decrypts and validates credentials, then responds with success or failure.
+     */
     private fun handleAuth(
         socket: DatagramSocket,
         session: SessionData,
@@ -124,6 +132,10 @@ class VpnServer(
         logger.logSessionEvent(session.sessionId, LogLevel.INFO, "Auth success for $username")
     }
 
+    /**
+     * Handles control frames, such as IP requests.
+     * Assigns IP addresses and sets up routing for authenticated clients.
+     */
     private fun handleControl(
         socket: DatagramSocket,
         session: SessionData,
@@ -155,6 +167,9 @@ class VpnServer(
         }
     }
 
+    /**
+     * Forwards IP packets to the appropriate client session based on destination IP.
+     */
     private fun handlePacketForward(
         socket: DatagramSocket,
         session: SessionData,

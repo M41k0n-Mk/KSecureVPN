@@ -4,6 +4,7 @@ import crypt.AESCipher
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
@@ -21,8 +22,34 @@ class PacketFramerTest {
             PacketFramer.sendFrame(out, key, FrameType.PACKET, payload)
 
             val frame = PacketFramer.readFrame(input, key)
-            requireNotNull(frame)
-            assertEquals(FrameType.PACKET, frame.first)
+            assertNotNull(frame)
+            assertEquals(FrameType.PACKET, frame!!.first)
             assertArrayEquals(payload, frame.second)
         }
+
+    @Test
+    fun `create and read frame from bytes roundtrip`() {
+        val key = AESCipher.generateKey()
+        val payload = "test-payload".toByteArray()
+
+        val frameData = PacketFramer.createFrame(FrameType.PACKET, payload, key)
+        val frame = PacketFramer.readFrameFromBytes(frameData, key)
+
+        requireNotNull(frame)
+        assertEquals(FrameType.PACKET, frame.first)
+        assertArrayEquals(payload, frame.second)
+    }
+
+    @Test
+    fun `create and read AUTH frame from bytes`() {
+        val key = AESCipher.generateKey()
+        val authPayload = "AUTH\ntest\npass".toByteArray()
+
+        val frameData = PacketFramer.createFrame(FrameType.AUTH, authPayload, key)
+        val frame = PacketFramer.readFrameFromBytes(frameData, key)
+
+        assertNotNull(frame)
+        assertEquals(FrameType.AUTH, frame!!.first)
+        assertArrayEquals(authPayload, frame.second)
+    }
 }

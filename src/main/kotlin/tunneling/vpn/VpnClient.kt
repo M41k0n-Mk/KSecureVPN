@@ -104,6 +104,9 @@ class VpnClient(
             socket.close()
         }
 
+    /**
+     * Sends a framed message over UDP to the server.
+     */
     private fun sendFrame(
         socket: DatagramSocket,
         type: Byte,
@@ -114,6 +117,9 @@ class VpnClient(
         socket.send(packet)
     }
 
+    /**
+     * Receives and parses a framed message from the server over UDP.
+     */
     private fun receiveFrame(socket: DatagramSocket): Pair<Byte, ByteArray>? {
         val buffer = ByteArray(65536)
         val packet = DatagramPacket(buffer, buffer.size)

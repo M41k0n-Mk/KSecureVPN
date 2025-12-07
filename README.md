@@ -10,7 +10,7 @@ KSecureVPN is an open-source VPN solution developed in Kotlin, designed for lear
 
 ## Features (MVP)
 
-- **VPN Tunneling:** Establishes secure VPN connections using TCP sockets, encapsulating IP packets.
+- **VPN Tunneling:** Establishes secure VPN connections using UDP sockets for better performance, encapsulating IP packets.
 - **Encryption:** Implements AES-based encryption to protect all VPN traffic.
 - **Authentication:** Supports username/password authentication to restrict VPN access.
 - **Session Tracking:** Each VPN connection is assigned a unique session ID for debugging and audit purposes.
@@ -22,6 +22,16 @@ KSecureVPN is an open-source VPN solution developed in Kotlin, designed for lear
 ## Architecture & Communication
 
 KSecureVPN currently supports **encrypted peer-to-peer communication** between connected clients through a central server. While it provides a solid foundation for VPN development, it functions as a "VPN overlay network" rather than a full internet VPN.
+
+### Transport Layer: UDP
+KSecureVPN uses **UDP (User Datagram Protocol)** instead of TCP for its transport layer. This choice provides several advantages for VPN implementations:
+
+- **Lower Latency:** UDP eliminates TCP's connection overhead and retransmission delays, resulting in faster packet forwarding.
+- **Better Performance on Lossy Networks:** VPNs often operate over unreliable connections; UDP handles packet loss more gracefully without blocking on retransmissions.
+- **Reduced Overhead:** No three-way handshake or keep-alive mechanisms, making it lighter for real-time applications.
+- **Foundation for Reliability:** While UDP doesn't guarantee delivery, the application layer can add sequence numbers or acknowledgments if needed for critical packets.
+
+However, this means authentication and control messages are sent unreliably. In practice, retries can be implemented at the application level for important frames.
 
 ### Current Capabilities ✅
 - **Peer-to-Peer Communication**: Clients can exchange IP packets through the encrypted server

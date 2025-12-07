@@ -51,6 +51,30 @@ object PacketFramer {
         return frame
     }
 
+    /** Reads one frame from InputStream. Returns Pair(type, payload) or null on invalid. */
+    suspend fun readFrame(
+        input: InputStream,
+        key: SecretKey,
+    ): Pair<Byte, ByteArray>? {
+        val iv = ByteArray(16)
+        val lenBytes = ByteArray(4)
+        withContext(Dispatchers.IO) {
+            if (input.read(iv) != 16) return@withContext null
+            if (input.read(lenBytes) != 4) return@withContext null
+        }
+        val len = lenBytes.toInt()
+        if (len <= 0 || len > 65540) return null
+        val cipher = ByteArray(len)
+        withContext(Dispatchers.IO) {
+            if (input.read(cipher) != len) return@withContext null
+        }
+        val plain = AESCipher.decrypt(cipher, key, iv)
+        if (plain.isEmpty()) return null
+        val type = plain[0]
+        val payload = plain.copyOfRange(1, plain.size)
+        return type to payload
+    }
+
     /** Reads one frame from byte array. Returns Pair(type, payload) or null on invalid. */
     fun readFrameFromBytes(
         data: ByteArray,
