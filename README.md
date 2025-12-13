@@ -56,7 +56,6 @@ KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
 Clients connected to the same server can communicate with each other using their assigned VPN IPs. The server acts as an encrypted router, forwarding packets between clients.
 
 ### Limitations for Full VPN 🔴
-- Linux: já há TUN real via `/dev/net/tun` (`tunneling.vpn.linux.RealTun`); em outros SOs ou sem permissão, a app faz fallback para `MemoryTun` (simulação em memória)
 - No internet access through the VPN server
 - No automatic routing configuration
 - No DNS configuration

@@ -98,26 +98,20 @@ When Client A sends a packet to Client B's IP:
 **Problem**: Manual key distribution and complex setup
 **Solution Needed**: Configuration files + automatic routing
 
-### 🟡 Real Network Integration
-**Status**: Já há integração real de TUN no Linux via `/dev/net/tun` (classe `tunneling.vpn.linux.RealTun`).
+### 🟡 Real Network Integration (cross‑platform)
+**Problema**: Falta integração real de TUN nos demais sistemas operacionais, atualmente só no Linux ela é implemenada
 
-**Como funciona hoje**:
-- Em Linux, o cliente tenta criar um TUN real automaticamente (ex.: `ksecvpn0`).
-- Se a criação falhar (sem `/dev/net/tun` ou sem permissões/CAP_NET_ADMIN), o cliente faz fallback para `MemoryTun` (simulação em memória).
-- Em outros SOs (Windows/macOS), por enquanto é usado `MemoryTun`.
-
-**Próximos passos**: Expandir suporte real de TUN para Windows (Wintun/TAP) e macOS (utun), e automatizar configuração de IP/MTU/rotas.
+**Solução necessária**:
+- Windows: integrar Wintun/TAP (JNI/JNA) e automatizar configuração de IP/MTU/rotas
+- macOS: integrar `utun` e automatizar configuração de IP/MTU/rotas
+- Automatizar setup (IP/MTU/rotas) via scripts/configuração
 
 ## Development Roadmap
 
 ### Phase 1: Real TUN Interface (High Priority)
-- Linux: Implementação concluída com `RealTun` (JNA + `/dev/net/tun`). ✓
-- Fallback: manter `MemoryTun` quando TUN não estiver disponível/permitido. ✓
-- Próximos: automatizar configuração de IP/MTU/rotas (fora do processo ou via scripts).
-
-### Phase 1.1: Cross‑platform TUN
-- Windows: integrar Wintun/TAP (JNI/JNA), configurar interface e rotas.
-- macOS: integrar `utun`.
+- Cross‑platform: integrar TUN/TAP em Windows (Wintun/TAP) e macOS (utun).
+- Fallback: manter `MemoryTun` quando TUN não estiver disponível/permitido.
+- Automatizar configuração de IP/MTU/rotas (fora do processo ou via scripts).
 
 ### Phase 2: Internet Access
 - Add iptables NAT rules on server
