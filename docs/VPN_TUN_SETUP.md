@@ -1,88 +1,87 @@
 # KSecureVPN — VPN-level Tunneling (TUN/TAP) Setup
 
-This document explains how to enable network-level tunneling using a virtual interface (TUN/L3). The first target is Linux. Windows/macOS notes are included at the end.
+Este documento descreve como habilitar tunelamento em nível de rede usando uma interface virtual (TUN/L3). Hoje há suporte real para Linux (RealTun) e Windows (Wintun). Em sistemas sem suporte/permite, o cliente faz fallback automático para `MemoryTun` (in‑memory), garantindo que a aplicação continue operando.
 
 Important security note:
 - All traffic transported by KSecureVPN is encrypted and authenticated by AES (see `crypt/AESCipher.kt`).
 - Do not log keys, plaintext traffic, or sensitive credentials. Use `SecureLogger` which avoids printing secrets.
 
 Overview
-- Client and Server exchange raw IPv4 packets encapsulated into the existing encrypted stream.
-- Virtual IPs from `10.8.0.0/24` are assigned to clients (server keeps a minimal routing table).
-- Packets are routed between clients by the server. Optionally, the server can NAT outbound traffic to the Internet.
+- Client e Server trocam pacotes IPv4 encapsulados em frames criptografados.
+- IPs virtuais de `10.8.0.0/24` são atribuídos aos clientes (o servidor mantém uma tabela de rotas mínima).
+- Pacotes são roteados entre clientes pelo servidor. Opcionalmente, o servidor pode fazer NAT para Internet (não automatizado nesta versão).
 
-Code structure (new modules)
-- `tunneling/vpn/VirtualInterface.kt` — abstraction for TUN/TAP devices.
-- `tunneling/vpn/Protocol.kt` — frame types for CONTROL and PACKET.
-- `tunneling/vpn/PacketFramer.kt` — helpers to send/receive frames over the AES channel.
-- `tunneling/vpn/IPv4.kt` — minimal IPv4 parsing helpers.
-- `tunneling/vpn/IpPool.kt` — simple /24 IP allocator (10.8.0.0/24 by default).
-- `tunneling/vpn/RoutingTable.kt` — maps virtual IPs to session senders.
-- `tunneling/vpn/VpnServer.kt` — experimental VPN server (auth, IP assignment, routing between clients).
-- `tunneling/vpn/VpnClient.kt` — experimental client using a `VirtualInterface`.
-- `tunneling/vpn/stub/MemoryTun.kt` — in-memory TUN used for tests and fallback.
-- `tunneling/vpn/linux/RealTun.kt` — real Linux TUN using `/dev/net/tun` via JNA (IFF_TUN | IFF_NO_PI).
+Code structure (módulos relevantes)
+- `tunneling/vpn/VirtualInterface.kt` — abstração para dispositivos TUN/TAP.
+- `tunneling/vpn/Protocol.kt` — frames de controle e dados.
+- `tunneling/vpn/PacketFramer.kt` — framing sobre o canal criptografado.
+- `tunneling/vpn/IPv4.kt` — utilitários simples para IPv4.
+- `tunneling/vpn/IpPool.kt` — alocador /24 simples (10.8.0.0/24 por padrão).
+- `tunneling/vpn/RoutingTable.kt` — mapeia IPs virtuais para sessões.
+- `tunneling/vpn/VpnServer.kt` — servidor experimental (auth, IP, roteamento entre clientes).
+- `tunneling/vpn/VpnClient.kt` — cliente experimental que usa uma `VirtualInterface`.
+- `tunneling/vpn/linux/RealTun.kt` — TUN real no Linux via `/dev/net/tun` (JNA).
+- `tunneling/vpn/windows/WintunTun.kt` — TUN real no Windows via Wintun (JNA).
+- `tunneling/vpn/stub/MemoryTun.kt` — TUN em memória (fallback/testes).
 
 Linux (TUN) — quick start
-1) Kernel and permissions
-   - Ensure `/dev/net/tun` exists and your user can create TUN devices.
-   - On Debian/Ubuntu: `sudo apt-get install -y iproute2`.
+1) Kernel e permissões
+   - Garanta que `/dev/net/tun` existe e que seu usuário pode criar TUNs.
+   - Debian/Ubuntu: `sudo apt-get install -y iproute2`.
 
-2) Create and configure a TUN device (server side)
-   - Create TUN device `tun0`, assign `10.8.0.1/24`, set MTU:
+2) Configuração de interface (exemplo manual, fora do app)
+   - Servidor `tun0` com `10.8.0.1/24` e MTU:
      ```bash
      sudo ip tuntap add dev tun0 mode tun
      sudo ip addr add 10.8.0.1/24 dev tun0
      sudo ip link set dev tun0 mtu 1500 up
      ```
-   - Enable IP forwarding (Linux):
+   - Encaminhamento IP no kernel:
      ```bash
      sudo sysctl -w net.ipv4.ip_forward=1
      ```
-   - Optional: NAT traffic from 10.8.0.0/24 to the Internet via `eth0`:
+   - (Opcional) NAT para Internet via `eth0`:
      ```bash
      sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
      sudo iptables -A FORWARD -s 10.8.0.0/24 -o eth0 -j ACCEPT
      sudo iptables -A FORWARD -d 10.8.0.0/24 -m state --state ESTABLISHED,RELATED -i eth0 -j ACCEPT
      ```
 
-3) Client-side TUN configuration (each client)
-   - Create client TUN `tun0` and configure the assigned IP (e.g., 10.8.0.2/24):
+3) Cliente (exemplo manual)
+   - `tun0` com IP atribuído (ex.: 10.8.0.2/24):
      ```bash
      sudo ip tuntap add dev tun0 mode tun
      sudo ip addr add 10.8.0.2/24 dev tun0
      sudo ip link set dev tun0 mtu 1500 up
-     ```
-   - Add route for the VPN network if needed (usually added via the IP/Mask above):
-     ```bash
      sudo ip route add 10.8.0.0/24 dev tun0
      ```
 
 4) Connecting KSecureVPN
-   - Start the VPN server (experimental): `VpnServer` listens on UDP port `9001`.
-   - Start clients using `VpnClient`. Em Linux, o cliente tentará criar automaticamente um TUN real (`RealTun`). Se não tiver permissão ou `/dev/net/tun` estiver ausente, fará fallback para `MemoryTun` (simulado, sem integração com o kernel).
+   - Start the VPN server (experimental): `VpnServer` listens on TCP port `9001`. CLI wiring is not finalized; see code.
+   - Start clients using `VpnClient` and a concrete `VirtualInterface` implementation (see notes below).
 
 VirtualInterface implementations
-- Linux: `tunneling.vpn.linux.RealTun` usa `/dev/net/tun` com `TUNSETIFF` (IFF_TUN | IFF_NO_PI) via JNA.
-- Multi‑plataforma/Fallback: `tunneling.vpn.stub.MemoryTun` fornece simulação em memória para testes e para execução em ambientes sem suporte ou permissão de TUN.
+- Linux: `tunneling.vpn.linux.RealTun` usa `/dev/net/tun` com `IFF_TUN | IFF_NO_PI` (JNA).
+- Windows: `tunneling.vpn.windows.WintunTun` usa Wintun (`wintun.dll`).
+- Fallback: `tunneling.vpn.stub.MemoryTun` quando TUN real não está disponível/permitido.
 
-Behavior on non‑Linux or without permissions
-- Windows/macOS: por enquanto é usado `MemoryTun` (sem integração com o kernel). Suporte real planejado: Wintun/TAP (Windows) e utun (macOS).
-- Linux sem CAP_NET_ADMIN ou sem `/dev/net/tun`: o cliente faz fallback automático para `MemoryTun` e continuará a funcionar em modo de simulação.
+Windows
+- Requer `wintun.dll` (x64) disponível no PATH ou variável `KSECUREVPN_WINTUN_DLL` apontando para a DLL.
+- A aplicação tenta usar `WintunTun("ksecvpn0")` automaticamente. Se falhar, faz fallback para `MemoryTun` e registra logs.
 
-Windows/macOS notes
-- Windows: Use TAP-Windows or Wintun (preferred). A JNI/JNA bridge is required to read/write packets.
-- macOS: Use utun interfaces via `SystemConfiguration`/NetworkExtension or `/dev/utunX` with a small native binding.
+macOS
+- Integração via `utun` ainda não implementada. O app usa `MemoryTun` por enquanto.
 
-MTU and fragmentation
-- Default MTU set to 1500. The VPN adds minimal overhead inside the encrypted payload, but underlying TCP may fragment further.
-- For better performance, consider MSS clamping and/or a slightly smaller MTU (e.g., 1400) to reduce fragmentation over the tunnel.
+MTU e fragmentação
+- MTU padrão 1500. Ajuste pode ser necessário dependendo do transporte e overhead.
 
-Security considerations
-- Keys are never logged. Use environment variable `KSECUREVPN_KEY` for a 32-byte base64 key.
-- Use strong user credentials (PBKDF2-based `PasswordHasher`).
-- Do not log packet contents.
+Considerações de segurança
+- Chaves nunca são logadas. Use variável `KSECUREVPN_KEY` com chave base64 de 32 bytes.
+- Use credenciais fortes (PBKDF2 `PasswordHasher`).
+- Não registre conteúdo de pacotes.
 
-Testing
-- Unit tests cobrem: framing, alocação de IP, parsing IPv4, tabela de rotas e criação básica do `RealTun` (Linux‑only com Assumptions).
-- Testes de I/O do `RealTun` podem ser habilitados via `ENABLE_TUN_TESTS=true` (apenas em Linux com permissões adequadas).
+Testes
+- Unitários cobrem: framing, alocação de IP, parsing IPv4, tabela de rotas e partes do servidor/cliente.
+- Testes Linux/Windows para TUN real são condicionais por SO e variáveis de ambiente:
+  - Linux: requer `/dev/net/tun`; smoke de I/O opcional com `ENABLE_TUN_TESTS=true`.
+  - Windows: requer `wintun.dll`; smoke de I/O opcional com `ENABLE_WINTUN_TESTS=true`.

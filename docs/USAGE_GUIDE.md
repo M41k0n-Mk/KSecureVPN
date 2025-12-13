@@ -99,19 +99,21 @@ When Client A sends a packet to Client B's IP:
 **Solution Needed**: Configuration files + automatic routing
 
 ### 🟡 Real Network Integration (cross‑platform)
-**Problema**: Falta integração real de TUN nos demais sistemas operacionais, atualmente só no Linux ela é implemenada
+Hoje:
+- Linux: TUN real suportado via `/dev/net/tun` (classe `tunneling.vpn.linux.RealTun`).
+- Windows: TUN real suportado via Wintun (classe `tunneling.vpn.windows.WintunTun`). Requer `wintun.dll` no PATH ou variável `KSECUREVPN_WINTUN_DLL` apontando para a DLL.
+- Outros SOs (ex.: macOS): ainda sem TUN real — usa `MemoryTun` como fallback.
 
-**Solução necessária**:
-- Windows: integrar Wintun/TAP (JNI/JNA) e automatizar configuração de IP/MTU/rotas
-- macOS: integrar `utun` e automatizar configuração de IP/MTU/rotas
-- Automatizar setup (IP/MTU/rotas) via scripts/configuração
+Próximos passos:
+- Implementar utun no macOS.
+- Automatizar configuração de IP/MTU/rotas/DNS (atualmente manual).
 
 ## Development Roadmap
 
-### Phase 1: Real TUN Interface (High Priority)
-- Cross‑platform: integrar TUN/TAP em Windows (Wintun/TAP) e macOS (utun).
-- Fallback: manter `MemoryTun` quando TUN não estiver disponível/permitido.
-- Automatizar configuração de IP/MTU/rotas (fora do processo ou via scripts).
+### Phase 1: Real TUN Interface (Atualizado)
+- Linux: CONCLUÍDO — `/dev/net/tun` via JNA (`RealTun`).
+- Windows: CONCLUÍDO — Wintun via JNA (`WintunTun`).
+- macOS: PENDENTE — utun.
 
 ### Phase 2: Internet Access
 - Add iptables NAT rules on server
@@ -146,6 +148,11 @@ mvn test ktlint:check
 # Run E2E tests (GitHub Actions)
 # Tests server startup and client connection
 ```
+
+Observações de testes TUN:
+- Testes Linux e Windows que tocam TUN real são condicionais:
+  - Linux: executados apenas quando `/dev/net/tun` existe e permissões permitem. O smoke de I/O requer `ENABLE_TUN_TESTS=true`.
+  - Windows: executados apenas quando `wintun.dll` está disponível. O smoke de I/O requer `ENABLE_WINTUN_TESTS=true`.
 
 ### Manual Testing
 ```bash

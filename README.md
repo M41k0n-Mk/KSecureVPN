@@ -56,10 +56,15 @@ KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
 Clients connected to the same server can communicate with each other using their assigned VPN IPs. The server acts as an encrypted router, forwarding packets between clients.
 
 ### Limitations for Full VPN 🔴
-- No internet access through the VPN server
-- No automatic routing configuration
+- No internet access through the VPN server (NAT/forwarding not automated)
+- No automatic routing configuration (IP/MTU/rotas/DNS ainda manuais)
 - No DNS configuration
 - Basic security (shared AES key)
+
+Notes on virtual interfaces (TUN):
+- Linux: Real TUN supported via `/dev/net/tun` (JNA), class `tunneling.vpn.linux.RealTun`
+- Windows: Real TUN supported via Wintun, class `tunneling.vpn.windows.WintunTun` (requires `wintun.dll` in PATH or `KSECUREVPN_WINTUN_DLL`)
+- macOS: Pending (utun) — fallback to in-memory `MemoryTun` for now
 
 📖 **[Usage Guide & Roadmap](docs/USAGE_GUIDE.md)** - How to use KSecureVPN today and development roadmap
 
@@ -124,8 +129,9 @@ The project follows a layered architecture for clarity and extensibility:
   - `RoutingTable.kt` - VPN routing table implementation
   - `VpnServer.kt` - VPN server with authentication and routing
   - `VpnClient.kt` - VPN client with virtual interface support
-  - `linux/RealTun.kt` - Real TUN for Linux via JNA (`/dev/net/tun`, IFF_TUN | IFF_NO_PI)
-  - `stub/MemoryTun.kt` - In-memory TUN implementation for testing
+  - `linux/RealTun.kt` - Real Linux TUN using `/dev/net/tun` (IFF_TUN | IFF_NO_PI)
+  - `windows/WintunTun.kt` - Real Windows TUN via Wintun DLL
+  - `stub/MemoryTun.kt` - In-memory TUN implementation used as fallback/testing
 
 ### Tests (`src/test/kotlin/`)
 - Unit tests for all major components
