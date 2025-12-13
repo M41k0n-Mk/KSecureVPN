@@ -5,6 +5,7 @@ import logging.SecureLogger
 import tunneling.vpn.VpnClient
 import tunneling.vpn.VpnServer
 import tunneling.vpn.stub.MemoryTun
+import tunneling.vpn.linux.RealTun
 import java.nio.file.Files
 import java.nio.file.OpenOption
 import java.nio.file.Paths
@@ -55,7 +56,19 @@ fun main(args: Array<String>) {
         }
         "client" -> {
             println("Conectando cliente VPN ao localhost:9001...")
-            val tun = MemoryTun("test-tun")
+            val tun =
+                try {
+                    if (System.getProperty("os.name").lowercase().contains("linux")) {
+                        println("Tentando criar TUN real em /dev/net/tun...")
+                        RealTun("ksecvpn0")
+                    } else {
+                        println("Sistema não é Linux; usando MemoryTun (stub)")
+                        MemoryTun("test-tun")
+                    }
+                } catch (e: Exception) {
+                    println("Não foi possível criar TUN real (${e.message}); usando MemoryTun (stub)")
+                    MemoryTun("test-tun")
+                }
             val client =
                 VpnClient(
                     serverHost = "127.0.0.1",

@@ -98,16 +98,20 @@ When Client A sends a packet to Client B's IP:
 **Problem**: Manual key distribution and complex setup
 **Solution Needed**: Configuration files + automatic routing
 
-### 🔴 Real Network Integration
-**Problem**: Uses in-memory TUN simulation
-**Solution Needed**: Real TUN device integration
+### 🟡 Real Network Integration (cross‑platform)
+**Problema**: Falta integração real de TUN nos demais sistemas operacionais, atualmente só no Linux ela é implemenada
+
+**Solução necessária**:
+- Windows: integrar Wintun/TAP (JNI/JNA) e automatizar configuração de IP/MTU/rotas
+- macOS: integrar `utun` e automatizar configuração de IP/MTU/rotas
+- Automatizar setup (IP/MTU/rotas) via scripts/configuração
 
 ## Development Roadmap
 
 ### Phase 1: Real TUN Interface (High Priority)
-- Replace `MemoryTun` with real `/dev/net/tun` device
-- Integrate with OS kernel networking
-- Test on Linux systems
+- Cross‑platform: integrar TUN/TAP em Windows (Wintun/TAP) e macOS (utun).
+- Fallback: manter `MemoryTun` quando TUN não estiver disponível/permitido.
+- Automatizar configuração de IP/MTU/rotas (fora do processo ou via scripts).
 
 ### Phase 2: Internet Access
 - Add iptables NAT rules on server

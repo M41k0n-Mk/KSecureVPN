@@ -20,7 +20,8 @@ Code structure (new modules)
 - `tunneling/vpn/RoutingTable.kt` — maps virtual IPs to session senders.
 - `tunneling/vpn/VpnServer.kt` — experimental VPN server (auth, IP assignment, routing between clients).
 - `tunneling/vpn/VpnClient.kt` — experimental client using a `VirtualInterface`.
-- `tunneling/vpn/stub/MemoryTun.kt` — in-memory TUN used for tests.
+- `tunneling/vpn/stub/MemoryTun.kt` — in-memory TUN used for tests and fallback.
+- `tunneling/vpn/linux/RealTun.kt` — real Linux TUN using `/dev/net/tun` via JNA (IFF_TUN | IFF_NO_PI).
 
 Linux (TUN) — quick start
 1) Kernel and permissions
@@ -58,14 +59,16 @@ Linux (TUN) — quick start
      ```
 
 4) Connecting KSecureVPN
-   - Start the VPN server (experimental): `VpnServer` listens on TCP port `9001`. CLI wiring is not finalized; see code.
-   - Start clients using `VpnClient` and a concrete `VirtualInterface` implementation (see notes below).
+   - Start the VPN server (experimental): `VpnServer` listens on UDP port `9001`.
+   - Start clients using `VpnClient`. Em Linux, o cliente tentará criar automaticamente um TUN real (`RealTun`). Se não tiver permissão ou `/dev/net/tun` estiver ausente, fará fallback para `MemoryTun` (simulado, sem integração com o kernel).
 
 VirtualInterface implementations
-- For Linux, a `VirtualInterface` implementation can be written using JNA/JNR to access `/dev/net/tun` with `IFF_TUN | IFF_NO_PI`.
-- This repository currently includes a test-only `MemoryTun` (in-memory) and focuses on protocol/routing. Add a real Linux `TunInterface` implementation as a follow-up:
-  - Open `/dev/net/tun`, configure via `TUNSETIFF` ioctl.
-  - Perform blocking reads/writes on the fd and adapt to `VirtualInterface` methods.
+- Linux: `tunneling.vpn.linux.RealTun` usa `/dev/net/tun` com `TUNSETIFF` (IFF_TUN | IFF_NO_PI) via JNA.
+- Multi‑plataforma/Fallback: `tunneling.vpn.stub.MemoryTun` fornece simulação em memória para testes e para execução em ambientes sem suporte ou permissão de TUN.
+
+Behavior on non‑Linux or without permissions
+- Windows/macOS: por enquanto é usado `MemoryTun` (sem integração com o kernel). Suporte real planejado: Wintun/TAP (Windows) e utun (macOS).
+- Linux sem CAP_NET_ADMIN ou sem `/dev/net/tun`: o cliente faz fallback automático para `MemoryTun` e continuará a funcionar em modo de simulação.
 
 Windows/macOS notes
 - Windows: Use TAP-Windows or Wintun (preferred). A JNI/JNA bridge is required to read/write packets.
@@ -81,5 +84,5 @@ Security considerations
 - Do not log packet contents.
 
 Testing
-- Unit tests cover: framing, IP allocation, IPv4 parsing, routing table.
-- A future integration test can spin up `VpnServer` and two clients with a real TUN, then verify `ping` between clients.
+- Unit tests cobrem: framing, alocação de IP, parsing IPv4, tabela de rotas e criação básica do `RealTun` (Linux‑only com Assumptions).
+- Testes de I/O do `RealTun` podem ser habilitados via `ENABLE_TUN_TESTS=true` (apenas em Linux com permissões adequadas).
