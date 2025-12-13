@@ -56,7 +56,7 @@ KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
 Clients connected to the same server can communicate with each other using their assigned VPN IPs. The server acts as an encrypted router, forwarding packets between clients.
 
 ### Limitations for Full VPN 🔴
-- No real TUN interface (uses in-memory simulation)
+- Linux: já há TUN real via `/dev/net/tun` (`tunneling.vpn.linux.RealTun`); em outros SOs ou sem permissão, a app faz fallback para `MemoryTun` (simulação em memória)
 - No internet access through the VPN server
 - No automatic routing configuration
 - No DNS configuration
@@ -125,6 +125,7 @@ The project follows a layered architecture for clarity and extensibility:
   - `RoutingTable.kt` - VPN routing table implementation
   - `VpnServer.kt` - VPN server with authentication and routing
   - `VpnClient.kt` - VPN client with virtual interface support
+  - `linux/RealTun.kt` - Real TUN for Linux via JNA (`/dev/net/tun`, IFF_TUN | IFF_NO_PI)
   - `stub/MemoryTun.kt` - In-memory TUN implementation for testing
 
 ### Tests (`src/test/kotlin/`)
