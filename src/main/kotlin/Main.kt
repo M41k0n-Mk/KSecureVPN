@@ -4,8 +4,9 @@ import logging.LogConfig
 import logging.SecureLogger
 import tunneling.vpn.VpnClient
 import tunneling.vpn.VpnServer
-import tunneling.vpn.stub.MemoryTun
 import tunneling.vpn.linux.RealTun
+import tunneling.vpn.stub.MemoryTun
+import tunneling.vpn.windows.WintunTun
 import java.nio.file.Files
 import java.nio.file.OpenOption
 import java.nio.file.Paths
@@ -56,19 +57,7 @@ fun main(args: Array<String>) {
         }
         "client" -> {
             println("Conectando cliente VPN ao localhost:9001...")
-            val tun =
-                try {
-                    if (System.getProperty("os.name").lowercase().contains("linux")) {
-                        println("Tentando criar TUN real em /dev/net/tun...")
-                        RealTun("ksecvpn0")
-                    } else {
-                        println("Sistema não é Linux; usando MemoryTun (stub)")
-                        MemoryTun("test-tun")
-                    }
-                } catch (e: Exception) {
-                    println("Não foi possível criar TUN real (${e.message}); usando MemoryTun (stub)")
-                    MemoryTun("test-tun")
-                }
+            val tun = createBestTunOrFallback()
             val client =
                 VpnClient(
                     serverHost = "127.0.0.1",
@@ -162,5 +151,34 @@ fun loadKeyFrom(envKey: String?): SecretKey {
         }
 
         generated
+    }
+}
+
+/**
+ * Tenta criar a melhor VirtualInterface disponível para o SO atual.
+ * - Windows: Wintun (wintun.dll) → fallback MemoryTun
+ * - Linux: RealTun (/dev/net/tun) → fallback MemoryTun
+ * - Outros: MemoryTun
+ */
+private fun createBestTunOrFallback(): tunneling.vpn.VirtualInterface {
+    val os = System.getProperty("os.name")?.lowercase() ?: ""
+    return try {
+        when {
+            os.contains("windows") -> {
+                println("[client] Tentando Wintun (Windows)...")
+                WintunTun("ksecvpn0")
+            }
+            os.contains("linux") -> {
+                println("[client] Tentando RealTun (Linux /dev/net/tun)...")
+                RealTun("ksecvpn0")
+            }
+            else -> {
+                println("[client] SO não suportado para TUN real; usando MemoryTun")
+                MemoryTun("memtun0")
+            }
+        }
+    } catch (e: Exception) {
+        println("[client] Falha ao criar TUN real (${e.message}); usando MemoryTun")
+        MemoryTun("memtun0")
     }
 }
