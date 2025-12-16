@@ -7,12 +7,12 @@ import kotlinx.coroutines.runBlocking
 import logging.LogLevel
 import logging.SecureLogger
 import session.SessionTracker
+import tunneling.vpn.linux.RealTun
+import tunneling.vpn.linux.SystemNetworking
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import javax.crypto.SecretKey
-import tunneling.vpn.linux.RealTun
-import tunneling.vpn.linux.SystemNetworking
 
 /**
  * Experimental VPN server using UDP transport with AES encryption for IP packets.
@@ -55,16 +55,17 @@ class VpnServer(
 
             // Inicializa TUN do servidor quando aplicável (Linux)
             val os = System.getProperty("os.name")?.lowercase() ?: ""
-            val srvTun: VirtualInterface? = try {
-                when {
-                    serverTun != null -> serverTun
-                    os.contains("linux") -> RealTun("ksecvpn0")
-                    else -> null
+            val srvTun: VirtualInterface? =
+                try {
+                    when {
+                        serverTun != null -> serverTun
+                        os.contains("linux") -> RealTun("ksecvpn0")
+                        else -> null
+                    }
+                } catch (e: Exception) {
+                    logger.logSessionEvent("server", LogLevel.WARN, "Falha ao criar TUN do servidor: ${e.message}")
+                    null
                 }
-            } catch (e: Exception) {
-                logger.logSessionEvent("server", LogLevel.WARN, "Falha ao criar TUN do servidor: ${e.message}")
-                null
-            }
 
             // Autoconfigura rede do sistema (Linux) se solicitado e TUN criada
             if (autoConfigureSystemNetworking && os.contains("linux") && srvTun is RealTun) {
@@ -85,12 +86,13 @@ class VpnServer(
                 launch(Dispatchers.IO) {
                     val buf = ByteArray((srvTun.mtu + 64).coerceAtLeast(1600))
                     while (true) {
-                        val n = try {
-                            srvTun.readPacket(buf)
-                        } catch (e: Exception) {
-                            logger.logSessionEvent("server", LogLevel.ERROR, "Erro lendo TUN do servidor: ${e.message}")
-                            break
-                        }
+                        val n =
+                            try {
+                                srvTun.readPacket(buf)
+                            } catch (e: Exception) {
+                                logger.logSessionEvent("server", LogLevel.ERROR, "Erro lendo TUN do servidor: ${e.message}")
+                                break
+                            }
                         if (n <= 0) continue
                         val dst = IPv4.dstAsInt(buf, n) ?: continue
                         val entry = routes.lookup(dst)

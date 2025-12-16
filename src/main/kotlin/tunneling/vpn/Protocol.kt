@@ -11,6 +11,7 @@ object FrameType {
     const val AUTH_RESPONSE: Byte = 0x02
     const val CONTROL: Byte = 0x10
     const val PACKET: Byte = 0x11
+
     // v2 handshake (Noise-like) frames carried before AUTH when protocol v2 is enabled
     const val HANDSHAKE_INIT: Byte = 0x20
     const val HANDSHAKE_RESP: Byte = 0x21

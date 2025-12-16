@@ -35,13 +35,14 @@ object X25519 {
     }
 
     fun exportPublicKey(pk: PublicKey): ByteArray = pk.encoded
-    fun importPublicKey(x509: ByteArray): PublicKey =
-        KeyFactory.getInstance(ALG).generatePublic(X509EncodedKeySpec(x509))
+
+    fun importPublicKey(x509: ByteArray): PublicKey = KeyFactory.getInstance(ALG).generatePublic(X509EncodedKeySpec(x509))
 
     fun exportPrivateKey(sk: PrivateKey): ByteArray = sk.encoded
-    fun importPrivateKey(pkcs8: ByteArray): PrivateKey =
-        KeyFactory.getInstance(ALG).generatePrivate(PKCS8EncodedKeySpec(pkcs8))
+
+    fun importPrivateKey(pkcs8: ByteArray): PrivateKey = KeyFactory.getInstance(ALG).generatePrivate(PKCS8EncodedKeySpec(pkcs8))
 
     fun b64(input: ByteArray): String = Base64.getEncoder().encodeToString(input)
+
     fun fromB64(b64: String): ByteArray = Base64.getDecoder().decode(b64)
 }

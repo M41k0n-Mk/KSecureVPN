@@ -27,18 +27,20 @@ object NoiseHandshake {
     fun clientInit(): Pair<ByteArray, ClientState> {
         val clientEph = X25519.generateKeyPair()
         val clientNonce = ByteArray(32).apply { SecureRandom().nextBytes(this) }
-        
-        val msg = Messages.Init(
-            clientEphemeralPubX509 = X25519.exportPublicKey(clientEph.public),
-            clientNonce = clientNonce,
-        )
-        
-        val state = ClientState(
-            ephemeralPriv = clientEph.private,
-            clientNonce = clientNonce,
-            transcript = msg.clientEphemeralPubX509 + clientNonce,
-        )
-        
+
+        val msg =
+            Messages.Init(
+                clientEphemeralPubX509 = X25519.exportPublicKey(clientEph.public),
+                clientNonce = clientNonce,
+            )
+
+        val state =
+            ClientState(
+                ephemeralPriv = clientEph.private,
+                clientNonce = clientNonce,
+                transcript = msg.clientEphemeralPubX509 + clientNonce,
+            )
+
         return Messages.encodeInit(msg) to state
     }
 
@@ -52,36 +54,38 @@ object NoiseHandshake {
         serverStaticPub: PublicKey,
     ): Pair<ByteArray?, ServerState?> {
         val init = Messages.decodeInit(clientInitBytes) ?: return null to null
-        
+
         val clientEphPub = X25519.importPublicKey(init.clientEphemeralPubX509)
         val serverEph = X25519.generateKeyPair()
         val serverNonce = ByteArray(32).apply { SecureRandom().nextBytes(this) }
-        
+
         // Compute DH: server ephemeral with client ephemeral
         val dh1 = X25519.agree(serverEph.private, clientEphPub)
-        
+
         // Proof: HMAC over partial transcript (placeholder for full Noise proof)
         val partialTranscript = init.clientEphemeralPubX509 + X25519.exportPublicKey(serverEph.public)
         val serverProofHmac = Hkdf.sha256(dh1 + partialTranscript)
-        
-        val msg = Messages.Resp(
-            serverEphemeralPubX509 = X25519.exportPublicKey(serverEph.public),
-            serverStaticPubX509 = serverStaticPub.encoded,
-            serverNonce = serverNonce,
-            serverProofHmac = serverProofHmac,
-        )
-        
-        val state = ServerState(
-            ephemeralPriv = serverEph.private,
-            staticPriv = serverStaticPriv,
-            staticPub = serverStaticPub,
-            clientEphPub = clientEphPub,
-            clientNonce = init.clientNonce,
-            serverNonce = serverNonce,
-            dh1 = dh1,
-            transcript = init.clientEphemeralPubX509 + X25519.exportPublicKey(serverEph.public) + serverStaticPub.encoded,
-        )
-        
+
+        val msg =
+            Messages.Resp(
+                serverEphemeralPubX509 = X25519.exportPublicKey(serverEph.public),
+                serverStaticPubX509 = serverStaticPub.encoded,
+                serverNonce = serverNonce,
+                serverProofHmac = serverProofHmac,
+            )
+
+        val state =
+            ServerState(
+                ephemeralPriv = serverEph.private,
+                staticPriv = serverStaticPriv,
+                staticPub = serverStaticPub,
+                clientEphPub = clientEphPub,
+                clientNonce = init.clientNonce,
+                serverNonce = serverNonce,
+                dh1 = dh1,
+                transcript = init.clientEphemeralPubX509 + X25519.exportPublicKey(serverEph.public) + serverStaticPub.encoded,
+            )
+
         return Messages.encodeResp(msg) to state
     }
 
@@ -94,36 +98,37 @@ object NoiseHandshake {
         serverStaticPubFromConfig: PublicKey,
     ): Pair<ByteArray?, SharedKeys?> {
         val resp = Messages.decodeResp(serverRespBytes) ?: return null to null
-        
+
         val serverEphPub = X25519.importPublicKey(resp.serverEphemeralPubX509)
         val serverStaticPub = X25519.importPublicKey(resp.serverStaticPubX509)
-        
+
         // Verify server static public key matches expected (from config)
         if (!serverStaticPub.encoded.contentEquals(serverStaticPubFromConfig.encoded)) {
             return null to null
         }
-        
+
         // Compute DH values
         val dh1 = X25519.agree(clientState.ephemeralPriv, serverEphPub)
         val dh2 = X25519.agree(clientState.ephemeralPriv, serverStaticPub)
-        
+
         // Derive shared key via HKDF
         val combined = dh1 + dh2
         val salt = clientState.clientNonce + resp.serverNonce
         val prk = Hkdf.extract(salt, combined)
         val sharedSecret = Hkdf.expand(prk, PROTOCOL_NAME.toByteArray(), 32)
-        
+
         // Client proof (HMAC over full transcript)
         val fullTranscript = clientState.transcript + resp.serverEphemeralPubX509 + resp.serverStaticPubX509
         val clientProofHmac = Hkdf.sha256(sharedSecret + fullTranscript)
-        
+
         val fin = Messages.Fin(clientProofHmac)
-        val sharedKeys = SharedKeys(
-            encryptionKey = GcmCipher.keyFromBytes(sharedSecret),
-            clientNonce = clientState.clientNonce,
-            serverNonce = resp.serverNonce,
-        )
-        
+        val sharedKeys =
+            SharedKeys(
+                encryptionKey = GcmCipher.keyFromBytes(sharedSecret),
+                clientNonce = clientState.clientNonce,
+                serverNonce = resp.serverNonce,
+            )
+
         return Messages.encodeFin(fin) to sharedKeys
     }
 
@@ -135,16 +140,16 @@ object NoiseHandshake {
         serverState: ServerState,
     ): SharedKeys? {
         val fin = Messages.decodeFin(clientFinBytes) ?: return null
-        
+
         // Compute DH: server static with client ephemeral
         val dh2 = X25519.agree(serverState.staticPriv, serverState.clientEphPub)
-        
+
         // Derive shared key (must match client's derivation)
         val combined = serverState.dh1 + dh2
         val salt = serverState.clientNonce + serverState.serverNonce
         val prk = Hkdf.extract(salt, combined)
         val sharedSecret = Hkdf.expand(prk, PROTOCOL_NAME.toByteArray(), 32)
-        
+
         return SharedKeys(
             encryptionKey = GcmCipher.keyFromBytes(sharedSecret),
             clientNonce = serverState.clientNonce,

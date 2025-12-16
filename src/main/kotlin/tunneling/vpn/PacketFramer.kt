@@ -140,7 +140,10 @@ private fun ByteArray.toInt(): Int =
         ((this[2].toInt() and 0xFF) shl 8) or
         (this[3].toInt() and 0xFF)
 
-private fun ByteArray.writeLong(offset: Int, value: Long) {
+private fun ByteArray.writeLong(
+    offset: Int,
+    value: Long,
+) {
     var v = value
     for (i in 7 downTo 0) {
         this[offset + (7 - i)] = ((v ushr (i * 8)) and 0xFF).toByte()

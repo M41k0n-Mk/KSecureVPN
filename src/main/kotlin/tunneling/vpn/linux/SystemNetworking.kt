@@ -70,7 +70,11 @@ object SystemNetworking {
         }
     }
 
-    private fun applyIptablesNatAndForward(subnet: String, tunName: String, wan: String) {
+    private fun applyIptablesNatAndForward(
+        subnet: String,
+        tunName: String,
+        wan: String,
+    ) {
         // NAT masquerade
         runSafe(listOf("iptables", "-t", "nat", "-C", "POSTROUTING", "-s", subnet, "-o", wan, "-j", "MASQUERADE"), "check NAT rule", true)
         runSafe(listOf("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", subnet, "-o", wan, "-j", "MASQUERADE"), "add NAT masquerade", true)
@@ -79,33 +83,60 @@ object SystemNetworking {
         runSafe(listOf("iptables", "-C", "FORWARD", "-i", tunName, "-o", wan, "-j", "ACCEPT"), "check forward out", true)
         runSafe(listOf("iptables", "-A", "FORWARD", "-i", tunName, "-o", wan, "-j", "ACCEPT"), "add forward out", true)
 
-        runSafe(listOf("iptables", "-C", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"), "check forward in established", true)
-        runSafe(listOf("iptables", "-A", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"), "add forward in established", true)
+        runSafe(
+            listOf("iptables", "-C", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"),
+            "check forward in established",
+            true,
+        )
+        runSafe(
+            listOf("iptables", "-A", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"),
+            "add forward in established",
+            true,
+        )
     }
 
-    private fun applyNftablesNatAndForward(subnet: String, tunName: String, wan: String) {
+    private fun applyNftablesNatAndForward(
+        subnet: String,
+        tunName: String,
+        wan: String,
+    ) {
         // Cria tabela/chain NAT se necessário e adiciona regra de masquerade
         runSafe(listOf("nft", "add", "table", "ip", "nat"), "create nft nat table", true)
-        runSafe(listOf("nft", "add", "chain", "ip", "nat", "POSTROUTING", "{", "type", "nat", "hook", "postrouting", "priority", "100;", "}") , "create nft POSTROUTING", true)
+        runSafe(
+            listOf("nft", "add", "chain", "ip", "nat", "POSTROUTING", "{", "type", "nat", "hook", "postrouting", "priority", "100;", "}"),
+            "create nft POSTROUTING",
+            true,
+        )
         runSafe(listOf("nft", "add", "rule", "ip", "nat", "POSTROUTING", "oifname", wan, "ip", "saddr", subnet, "masquerade"), "add nft masquerade", true)
 
         // Regras de forward no filtro
         runSafe(listOf("nft", "add", "table", "ip", "filter"), "create nft filter table", true)
-        runSafe(listOf("nft", "add", "chain", "ip", "filter", "FORWARD", "{", "type", "filter", "hook", "forward", "priority", "0;", "}"), "create nft FORWARD chain", true)
+        runSafe(
+            listOf("nft", "add", "chain", "ip", "filter", "FORWARD", "{", "type", "filter", "hook", "forward", "priority", "0;", "}"),
+            "create nft FORWARD chain",
+            true,
+        )
         runSafe(listOf("nft", "add", "rule", "ip", "filter", "FORWARD", "iifname", tunName, "oifname", wan, "accept"), "nft forward out", true)
-        runSafe(listOf("nft", "add", "rule", "ip", "filter", "FORWARD", "iifname", wan, "oifname", tunName, "ct", "state", "related,established", "accept"), "nft forward in established", true)
+        runSafe(
+            listOf("nft", "add", "rule", "ip", "filter", "FORWARD", "iifname", wan, "oifname", tunName, "ct", "state", "related,established", "accept"),
+            "nft forward in established",
+            true,
+        )
     }
 
-    private fun openFirewallUdpPort(port: Int, permanent: Boolean) {
+    private fun openFirewallUdpPort(
+        port: Int,
+        permanent: Boolean,
+    ) {
         // ufw (Ubuntu/Debian) – não fatal quando não instalado
         runSafe(listOf("ufw", "allow", "$port/udp"), "ufw allow $port/udp", true)
         // firewalld (CentOS/Fedora/RHEL)
         val permFlag = if (permanent) "--permanent" else ""
         if (permFlag.isNotEmpty()) {
-            runSafe(listOf("bash", "-lc", "firewall-cmd $permFlag --add-port=${port}/udp"), "firewalld add-port permanent", true)
+            runSafe(listOf("bash", "-lc", "firewall-cmd $permFlag --add-port=$port/udp"), "firewalld add-port permanent", true)
             runSafe(listOf("firewall-cmd", "--reload"), "firewalld reload", true)
         } else {
-            runSafe(listOf("firewall-cmd", "--add-port=${port}/udp"), "firewalld add-port runtime", true)
+            runSafe(listOf("firewall-cmd", "--add-port=$port/udp"), "firewalld add-port runtime", true)
         }
         // iptables como fallback (abre INPUT udp:9001). Não idempotente perfeito; tentamos check + add
         runSafe(listOf("iptables", "-C", "INPUT", "-p", "udp", "--dport", port.toString(), "-j", "ACCEPT"), "iptables check INPUT $port/udp", true)
@@ -121,7 +152,11 @@ object SystemNetworking {
         }
     }
 
-    private fun runSafe(cmd: List<String>, actionDesc: String, continueOnFail: Boolean = false) {
+    private fun runSafe(
+        cmd: List<String>,
+        actionDesc: String,
+        continueOnFail: Boolean = false,
+    ) {
         try {
             val proc = ProcessBuilder(cmd).redirectErrorStream(true).start()
             val out = proc.inputStream.bufferedReader().readText()
