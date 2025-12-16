@@ -9,11 +9,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logging.LogLevel
 import logging.SecureLogger
+import tunneling.vpn.linux.ClientNetworking
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import javax.crypto.SecretKey
-import tunneling.vpn.linux.ClientNetworking
 
 /**
  * Experimental VPN client using UDP transport to exchange raw IP packets with the server.

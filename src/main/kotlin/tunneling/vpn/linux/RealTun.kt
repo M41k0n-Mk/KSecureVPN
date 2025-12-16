@@ -76,7 +76,10 @@ class RealTun(
         return n
     }
 
-    override fun writePacket(packet: ByteArray, length: Int) {
+    override fun writePacket(
+        packet: ByteArray,
+        length: Int,
+    ) {
         if (closed.get()) return
         val libc = CLib.INSTANCE
         val toWrite = length.coerceAtMost(packet.size)
@@ -114,10 +117,29 @@ class RealTun(
     }
 
     private interface CLib : Library {
-        fun open(path: ByteArray, flags: Int): Int
-        fun ioctl(fd: Int, request: Int, argp: Pointer): Int
-        fun read(fd: Int, buffer: ByteArray, count: Int): Int
-        fun write(fd: Int, buffer: ByteArray, count: Int): Int
+        fun open(
+            path: ByteArray,
+            flags: Int,
+        ): Int
+
+        fun ioctl(
+            fd: Int,
+            request: Int,
+            argp: Pointer,
+        ): Int
+
+        fun read(
+            fd: Int,
+            buffer: ByteArray,
+            count: Int,
+        ): Int
+
+        fun write(
+            fd: Int,
+            buffer: ByteArray,
+            count: Int,
+        ): Int
+
         fun close(fd: Int): Int
 
         companion object {

@@ -13,13 +13,14 @@ class WintunCreationTest {
         // Pula se a DLL não puder ser carregada
         assumeTrue(Loader.isAvailable(), "wintun.dll não disponível neste ambiente de teste")
 
-        val tun = try {
-            WintunTun("ksecvpn-ut0")
-        } catch (e: Exception) {
-            // Em ambientes sem driver devidamente instalado, aceite pular o teste
-            assumeTrue(false, "Falha ao iniciar WintunTun: ${e.message}")
-            return
-        }
+        val tun =
+            try {
+                WintunTun("ksecvpn-ut0")
+            } catch (e: Exception) {
+                // Em ambientes sem driver devidamente instalado, aceite pular o teste
+                assumeTrue(false, "Falha ao iniciar WintunTun: ${e.message}")
+                return
+            }
 
         assertNotNull(tun)
         tun.close()

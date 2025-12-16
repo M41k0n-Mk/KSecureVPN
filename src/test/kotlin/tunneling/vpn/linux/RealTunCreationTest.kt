@@ -15,13 +15,14 @@ class RealTunCreationTest {
         val devTunExists = Files.exists(Paths.get("/dev/net/tun"))
         assumeTrue(devTunExists, "/dev/net/tun não existe neste ambiente de teste")
 
-        val tun = try {
-            RealTun("ksecvpn-ut0")
-        } catch (e: Exception) {
-            // Sem CAP_NET_ADMIN ou sem permissões suficientes: pular o teste
-            assumeTrue(false, "Sem permissões para criar TUN: ${e.message}")
-            return
-        }
+        val tun =
+            try {
+                RealTun("ksecvpn-ut0")
+            } catch (e: Exception) {
+                // Sem CAP_NET_ADMIN ou sem permissões suficientes: pular o teste
+                assumeTrue(false, "Sem permissões para criar TUN: ${e.message}")
+                return
+            }
 
         assertTrue(tun.name.isNotBlank())
         tun.close()

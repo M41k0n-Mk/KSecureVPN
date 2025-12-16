@@ -1,12 +1,10 @@
 package tunneling.vpn.windows
 
-import com.sun.jna.Memory
 import com.sun.jna.Pointer
 import logging.LogLevel
 import logging.SecureLogger
 import tunneling.vpn.VirtualInterface
 import java.io.IOException
-import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -86,7 +84,10 @@ class WintunTun(
         }
     }
 
-    override fun writePacket(packet: ByteArray, length: Int) {
+    override fun writePacket(
+        packet: ByteArray,
+        length: Int,
+    ) {
         if (closed.get()) return
         val toWrite = length.coerceAtMost(packet.size)
         val p = api!!.WintunAllocateSendPacket(session, toWrite)

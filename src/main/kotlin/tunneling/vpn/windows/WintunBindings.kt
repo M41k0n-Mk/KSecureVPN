@@ -1,7 +1,8 @@
+@file:Suppress("FunctionName", "PropertyName")
+
 package tunneling.vpn.windows
 
 import com.sun.jna.*
-import com.sun.jna.ptr.PointerByReference
 import logging.LogLevel
 import logging.SecureLogger
 
@@ -12,6 +13,8 @@ import logging.SecureLogger
  * enviar/receber pacotes e fechar.
  *
  * Referência: https://www.wintun.net/
+ * Nomes de funções/propriedades correspondem às APIs C originais e não podem ser
+ * alterados sem quebrar as bindings JNA.
  */
 internal interface WintunNative : Library {
     fun WintunOpenAdapter(
@@ -22,7 +25,7 @@ internal interface WintunNative : Library {
     fun WintunCreateAdapter(
         pool: WString?,
         name: WString?,
-        requestedGUID: GUID?
+        requestedGUID: GUID?,
     ): Pointer?
 
     fun WintunCloseAdapter(adapter: Pointer?)
@@ -34,7 +37,10 @@ internal interface WintunNative : Library {
 
     fun WintunEndSession(session: Pointer?)
 
-    fun WintunGetAdapterLUID(adapter: Pointer?, luid: Pointer?)
+    fun WintunGetAdapterLUID(
+        adapter: Pointer?,
+        luid: Pointer?,
+    )
 
     fun WintunAllocateSendPacket(
         session: Pointer?,
@@ -46,18 +52,14 @@ internal interface WintunNative : Library {
         packet: Pointer?,
     )
 
-    fun WintunReceivePacket(
-        session: Pointer?,
-    ): Pointer?
+    fun WintunReceivePacket(session: Pointer?): Pointer?
 
     fun WintunReleaseReceivePacket(
         session: Pointer?,
         packet: Pointer?,
     )
 
-    fun WintunGetPacketSize(
-        packet: Pointer?
-    ): Int
+    fun WintunGetPacketSize(packet: Pointer?): Int
 
     companion object {
         val INSTANCE: WintunNative? by lazy { Loader.load() }
@@ -67,9 +69,13 @@ internal interface WintunNative : Library {
 /** GUID struct simplificado para chamada de criação (pode ser null para GUID aleatório). */
 internal class GUID : Structure() {
     @JvmField var Data1: Int = 0
+
     @JvmField var Data2: Short = 0
+
     @JvmField var Data3: Short = 0
+
     @JvmField var Data4: ByteArray = ByteArray(8)
+
     override fun getFieldOrder(): MutableList<String> = mutableListOf("Data1", "Data2", "Data3", "Data4")
 }
 
