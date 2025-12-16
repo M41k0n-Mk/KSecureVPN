@@ -37,35 +37,87 @@ object SystemNetworking {
         // Habilita IP forwarding
         runSafe(listOf("sysctl", "-w", "net.ipv4.ip_forward=1"), "enable ip_forward")
 
-        // NAT/MASQUERADE
+        // NAT/MASQUERADE + abertura de porta no firewall (opcional)
         val wan = wanIf?.trim().orEmpty()
-        if (wan.isNotEmpty()) {
-            runSafe(
-                listOf("iptables", "-t", "nat", "-C", "POSTROUTING", "-s", cidrToSubnet(cidr), "-o", wan, "-j", "MASQUERADE"),
-                "check NAT rule",
-                continueOnFail = true,
-            )
-            runSafe(
-                listOf("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", cidrToSubnet(cidr), "-o", wan, "-j", "MASQUERADE"),
-                "add NAT masquerade",
-                continueOnFail = true,
-            )
-            // Forwarding rules
-            runSafe(listOf("iptables", "-C", "FORWARD", "-i", tunName, "-o", wan, "-j", "ACCEPT"), "check forward out", true)
-            runSafe(listOf("iptables", "-A", "FORWARD", "-i", tunName, "-o", wan, "-j", "ACCEPT"), "add forward out", true)
+        val firewallBackend = (System.getenv("KSECUREVPN_FIREWALL_BACKEND") ?: "").lowercase()
+        val openPort = System.getenv("KSECUREVPN_FIREWALL_OPEN_PORT")?.toBoolean() ?: true
+        val permanent = System.getenv("KSECUREVPN_FIREWALL_PERMANENT")?.toBoolean() ?: false
 
-            runSafe(
-                listOf("iptables", "-C", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", " ACCEPT"),
-                "check forward in established",
-                true,
-            )
-            runSafe(
-                listOf("iptables", "-A", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"),
-                "add forward in established",
-                true,
-            )
+        if (wan.isNotEmpty()) {
+            val subnet = cidrToSubnet(cidr)
+            val backend = chooseNatBackend(firewallBackend)
+            logger.logSessionEvent("net", LogLevel.INFO, "Config NAT backend: $backend (WAN=$wan, subnet=$subnet)")
+            when (backend) {
+                "nftables" -> applyNftablesNatAndForward(subnet, tunName, wan)
+                else -> applyIptablesNatAndForward(subnet, tunName, wan)
+            }
         } else {
             logger.logSessionEvent("net", LogLevel.WARN, "KSECUREVPN_WAN_IFACE not set; skipping NAT configuration")
+        }
+
+        if (openPort) {
+            openFirewallUdpPort(9001, permanent)
+        } else {
+            logger.logSessionEvent("net", LogLevel.INFO, "Firewall port open disabled by env")
+        }
+    }
+
+    private fun chooseNatBackend(requested: String): String {
+        return when (requested) {
+            "nft", "nftables" -> "nftables"
+            "iptables" -> "iptables"
+            else -> if (hasCmd("nft")) "nftables" else "iptables"
+        }
+    }
+
+    private fun applyIptablesNatAndForward(subnet: String, tunName: String, wan: String) {
+        // NAT masquerade
+        runSafe(listOf("iptables", "-t", "nat", "-C", "POSTROUTING", "-s", subnet, "-o", wan, "-j", "MASQUERADE"), "check NAT rule", true)
+        runSafe(listOf("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", subnet, "-o", wan, "-j", "MASQUERADE"), "add NAT masquerade", true)
+
+        // Forwarding rules
+        runSafe(listOf("iptables", "-C", "FORWARD", "-i", tunName, "-o", wan, "-j", "ACCEPT"), "check forward out", true)
+        runSafe(listOf("iptables", "-A", "FORWARD", "-i", tunName, "-o", wan, "-j", "ACCEPT"), "add forward out", true)
+
+        runSafe(listOf("iptables", "-C", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"), "check forward in established", true)
+        runSafe(listOf("iptables", "-A", "FORWARD", "-i", wan, "-o", tunName, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"), "add forward in established", true)
+    }
+
+    private fun applyNftablesNatAndForward(subnet: String, tunName: String, wan: String) {
+        // Cria tabela/chain NAT se necessário e adiciona regra de masquerade
+        runSafe(listOf("nft", "add", "table", "ip", "nat"), "create nft nat table", true)
+        runSafe(listOf("nft", "add", "chain", "ip", "nat", "POSTROUTING", "{", "type", "nat", "hook", "postrouting", "priority", "100;", "}") , "create nft POSTROUTING", true)
+        runSafe(listOf("nft", "add", "rule", "ip", "nat", "POSTROUTING", "oifname", wan, "ip", "saddr", subnet, "masquerade"), "add nft masquerade", true)
+
+        // Regras de forward no filtro
+        runSafe(listOf("nft", "add", "table", "ip", "filter"), "create nft filter table", true)
+        runSafe(listOf("nft", "add", "chain", "ip", "filter", "FORWARD", "{", "type", "filter", "hook", "forward", "priority", "0;", "}"), "create nft FORWARD chain", true)
+        runSafe(listOf("nft", "add", "rule", "ip", "filter", "FORWARD", "iifname", tunName, "oifname", wan, "accept"), "nft forward out", true)
+        runSafe(listOf("nft", "add", "rule", "ip", "filter", "FORWARD", "iifname", wan, "oifname", tunName, "ct", "state", "related,established", "accept"), "nft forward in established", true)
+    }
+
+    private fun openFirewallUdpPort(port: Int, permanent: Boolean) {
+        // ufw (Ubuntu/Debian) – não fatal quando não instalado
+        runSafe(listOf("ufw", "allow", "$port/udp"), "ufw allow $port/udp", true)
+        // firewalld (CentOS/Fedora/RHEL)
+        val permFlag = if (permanent) "--permanent" else ""
+        if (permFlag.isNotEmpty()) {
+            runSafe(listOf("bash", "-lc", "firewall-cmd $permFlag --add-port=${port}/udp"), "firewalld add-port permanent", true)
+            runSafe(listOf("firewall-cmd", "--reload"), "firewalld reload", true)
+        } else {
+            runSafe(listOf("firewall-cmd", "--add-port=${port}/udp"), "firewalld add-port runtime", true)
+        }
+        // iptables como fallback (abre INPUT udp:9001). Não idempotente perfeito; tentamos check + add
+        runSafe(listOf("iptables", "-C", "INPUT", "-p", "udp", "--dport", port.toString(), "-j", "ACCEPT"), "iptables check INPUT $port/udp", true)
+        runSafe(listOf("iptables", "-A", "INPUT", "-p", "udp", "--dport", port.toString(), "-j", "ACCEPT"), "iptables add INPUT $port/udp", true)
+    }
+
+    private fun hasCmd(cmd: String): Boolean {
+        return try {
+            val p = ProcessBuilder(cmd, "--version").redirectErrorStream(true).start()
+            p.waitFor() == 0
+        } catch (_: Exception) {
+            false
         }
     }
 
