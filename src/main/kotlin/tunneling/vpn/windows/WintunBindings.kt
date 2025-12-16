@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "PropertyName")
+
 package tunneling.vpn.windows
 
 import com.sun.jna.*
@@ -11,6 +13,8 @@ import logging.SecureLogger
  * enviar/receber pacotes e fechar.
  *
  * Referência: https://www.wintun.net/
+ * Nomes de funções/propriedades correspondem às APIs C originais e não podem ser
+ * alterados sem quebrar as bindings JNA.
  */
 internal interface WintunNative : Library {
     fun WintunOpenAdapter(
