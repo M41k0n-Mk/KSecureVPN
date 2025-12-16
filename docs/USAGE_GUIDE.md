@@ -2,19 +2,23 @@
 
 ## What KSecureVPN Does Today ✅
 
-KSecureVPN is a working VPN prototype that creates an **encrypted overlay network** for peer-to-peer communication. It's not yet a full internet VPN, but you can use it to connect multiple clients that communicate securely through a central server.
+KSecureVPN é um protótipo funcional de VPN que cria uma rede sobreposta (overlay) criptografada entre clientes através de um servidor central. A implementação atual utiliza UDP como transporte e AES‑GCM (AEAD) para confidencialidade e integridade, com números de sequência por quadro e janela anti‑replay. Em Linux, o servidor pode atuar como gateway para a Internet (egresso) quando ativado o IP forwarding e o NAT (iptables/nftables) — a automação dessas regras está embutida.
 
-### Current Capabilities
+### Capacidades atuais
 
-**✅ Encrypted Communication**: All traffic between clients and server is AES-encrypted
-**✅ Peer-to-Peer Networking**: Connected clients can exchange IP packets
-**✅ Automatic IP Assignment**: Each client gets a unique IP (10.8.0.2, 10.8.0.3, etc.)
-**✅ Authentication**: Username/password access control
-**✅ Session Management**: Connection tracking and automatic cleanup
+**✅ Criptografia autenticada (AEAD)**: Tráfego protegido com AES‑GCM + tag de autenticação
+**✅ Anti‑replay**: Número de sequência por frame e janela deslizante
+**✅ Transporte UDP**: Baixa latência e melhor desempenho em redes com perda
+**✅ Rede P2P via servidor**: Encaminhamento de pacotes IP entre clientes
+**✅ Atribuição automática de IP**: Pool 10.8.0.0/24 (10.8.0.1 reservado ao gateway)
+**✅ Autenticação**: Usuário/senha com PBKDF2
+**✅ TUN real**: Linux (`RealTun`) e Windows (`Wintun`) com fallback em memória
+**✅ Servidor como gateway (Linux)**: IP forwarding + NAT (iptables ou nftables) automatizáveis
+**✅ Cliente Linux auto‑config**: Sobe TUN, IP/MTU, rota default (opcional) e DNS
 
-### How to Use It Right Now
+### Como usar agora
 
-#### Quick Start
+#### Quick Start (Linux)
 
 1. **Generate encryption key**:
 ```bash
@@ -22,18 +26,29 @@ export KSECUREVPN_KEY=$(head -c 32 /dev/urandom | base64)
 echo "Key: $KSECUREVPN_KEY"
 ```
 
-2. **Start the server**:
+2. **Start the server** (Linux; requer root/CAP_NET_ADMIN para configurar rede):
 ```bash
-mvn exec:java -Dexec.args="server"
+# Interface WAN para NAT (ex.: eth0)
+export KSECUREVPN_WAN_IFACE=eth0
+# (opcional) escolher backend de firewall/NAT: iptables (padrão) ou nftables
+export KSECUREVPN_FIREWALL_BACKEND=nftables
+# (opcional) abrir UDP/9001 no ufw/firewalld (se instalados)
+export KSECUREVPN_FIREWALL_OPEN_PORT=true
+# (opcional) tornar regra permanente (firewalld)
+export KSECUREVPN_FIREWALL_PERMANENT=true
+
+mvn -q exec:java -Dexec.args="server"
 ```
 
-3. **Connect clients** (in different terminals):
+3. **Connect clients** (em terminais diferentes):
 ```bash
-# Client 1 (gets IP 10.8.0.2)
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+# Cliente 1 (recebe 10.8.0.2). Opcional: definir rota default e DNS no cliente Linux
+export KSECUREVPN_CLIENT_SET_DEFAULT_ROUTE=true
+export KSECUREVPN_CLIENT_DNS=8.8.8.8,8.8.4.4
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn -q exec:java -Dexec.args="client" &
 
-# Client 2 (gets IP 10.8.0.3)
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+# Cliente 2 (recebe 10.8.0.3)
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn -q exec:java -Dexec.args="client" &
 ```
 
 #### Demo Mode
@@ -45,18 +60,18 @@ mvn exec:java -Dexec.args="vpn-demo"
 
 This shows packet exchange between simulated clients Alice and Bob.
 
-## How Communication Works
+## Como a comunicação funciona
 
-### Network Flow
+### Fluxo de rede
 ```
-Client A (10.8.0.2) ────[Encrypted TCP]──── Server ────[Encrypted TCP]──── Client B (10.8.0.3)
+Client A (10.8.0.2) ────[Encrypted UDP/AEAD]──── Server ────[Encrypted UDP/AEAD]──── Client B (10.8.0.3)
         │                                               │
         └─────────────── Virtual Network ───────────────┘
 ```
 
 ### What Happens When You Connect
 
-1. **Client connects** → TCP connection to server:9001
+1. **Client connects** → UDP para server:9001
 2. **Authentication** → Sends username/password
 3. **IP Assignment** → Server gives unique IP from 10.8.0.0/24
 4. **Route Registration** → Server adds client to routing table
@@ -66,78 +81,69 @@ Client A (10.8.0.2) ────[Encrypted TCP]──── Server ────[
 
 When Client A sends a packet to Client B's IP:
 1. Client A encapsulates IP packet in encrypted frame
-2. Sends to server via TCP
+2. Envia ao servidor via UDP
 3. Server decrypts, reads destination IP
 4. Looks up route in routing table
 5. Forwards encrypted packet to Client B
 6. Client B decrypts and receives the packet
 
-## What You CAN Do Today
+## O que você pode fazer hoje
 
-### ✅ Test Peer Communication
+### ✅ Testar comunicação entre pares
 - Connect multiple clients to same server
 - Send packets between clients using their VPN IPs
 - All traffic is encrypted end-to-end
 
-### ✅ Learn VPN Internals
+### ✅ Aprender internals de VPN
 - Study the protocol implementation
 - Understand packet routing and encryption
 - Experiment with network programming
 
-### ✅ Use as Secure Chat/Overlay Network
+### ✅ Usar como overlay seguro
 - Create private networks for specific applications
 - Secure communication between devices
 
-## What You CANNOT Do Yet (Roadmap)
+## Roadmap (atualizado)
 
-### 🔴 Access Internet Through VPN
-**Problem**: Sites see your real IP, not the server's IP
-**Solution Needed**: NAT/Masquerading on server + routing configuration
+### 🟢 Internet via VPN (Linux)
+Disponível quando o servidor Linux está com `KSECUREVPN_WAN_IFACE` definido. O servidor sobe TUN, habilita `net.ipv4.ip_forward=1` e aplica NAT/FORWARD via iptables ou nftables. O cliente Linux pode definir rota default via VPN e DNS.
 
-### 🔴 Automatic Client Setup
-**Problem**: Manual key distribution and complex setup
-**Solution Needed**: Configuration files + automatic routing
+### 🟢 Automação do cliente (Linux)
+Após `IP_ASSIGN`, o cliente configura IP/MTU, rota default (opcional) e DNS. Windows/macOS: pendente.
 
-### 🟡 Real Network Integration (cross‑platform)
+### 🟡 Integração de rede real (cross‑platform)
 Hoje:
-- Linux: TUN real suportado via `/dev/net/tun` (classe `tunneling.vpn.linux.RealTun`).
-- Windows: TUN real suportado via Wintun (classe `tunneling.vpn.windows.WintunTun`). Requer `wintun.dll` no PATH ou variável `KSECUREVPN_WINTUN_DLL` apontando para a DLL.
-- Outros SOs (ex.: macOS): ainda sem TUN real — usa `MemoryTun` como fallback.
+- Linux: TUN real `/dev/net/tun` (`tunneling.vpn.linux.RealTun`).
+- Windows: Wintun (`tunneling.vpn.windows.WintunTun`) com `wintun.dll`.
+- Outros (ex.: macOS): sem TUN real — usa `MemoryTun`.
 
 Próximos passos:
-- Implementar utun no macOS.
-- Automatizar configuração de IP/MTU/rotas/DNS (atualmente manual).
+- Implementar utun (macOS) e automação equivalente.
 
 ## Development Roadmap
 
-### Phase 1: Real TUN Interface (Atualizado)
+### Phase 1: TUN real (atualizado)
 - Linux: CONCLUÍDO — `/dev/net/tun` via JNA (`RealTun`).
 - Windows: CONCLUÍDO — Wintun via JNA (`WintunTun`).
 - macOS: PENDENTE — utun.
 
-### Phase 2: Internet Access
-- Add iptables NAT rules on server
-- Enable IP forwarding
-- Configure server-side routing
+### Phase 2: Acesso à Internet (Linux)
+- CONCLUÍDO — iptables/nftables NAT + IP forwarding + FORWARD rules via `SystemNetworking`.
 
-### Phase 3: Client Automation
-- Create `.ovpn`-style config files
-- Automatic route setup on clients
-- Cross-platform client (Windows/macOS/Linux)
+### Phase 3: Automação do Cliente
+- Linux: CONCLUÍDO — IP/MTU/rota default (opcional) e DNS.
+- Windows/macOS: PENDENTE.
 
-### Phase 4: Production Security
-- Certificate-based authentication
-- Key rotation and perfect forward secrecy
-- DDoS protection and rate limiting
+### Phase 4: Segurança de Produção
+- Em progresso: transporte com AEAD (AES‑GCM) + anti‑replay (concluído).
+- Próximo: PFS (Noise/TLS 1.3), rotação de chaves, limitação de taxa e anti‑DoS.
 
-### Phase 5: Advanced Features
-- UDP support for better performance
-- Multi-server/high availability
-- GUI client application
+### Phase 5: Recursos Avançados
+- Multi‑server/HA, métricas, reconexão/keepalive, GUI.
 
-## Testing Current Functionality
+## Testes
 
-### Automated Tests
+### Testes automatizados
 ```bash
 # Run all tests
 mvn test
@@ -154,29 +160,34 @@ Observações de testes TUN:
   - Linux: executados apenas quando `/dev/net/tun` existe e permissões permitem. O smoke de I/O requer `ENABLE_TUN_TESTS=true`.
   - Windows: executados apenas quando `wintun.dll` está disponível. O smoke de I/O requer `ENABLE_WINTUN_TESTS=true`.
 
-### Manual Testing
+### Teste manual (smoke)
 ```bash
-# 1. Start server
-mvn exec:java -Dexec.args="server"
+# 1) Servidor (Linux)
+export KSECUREVPN_KEY=$(head -c 32 /dev/urandom | base64)
+export KSECUREVPN_WAN_IFACE=eth0
+mvn -q exec:java -Dexec.args="server"
 
-# 2. In another terminal, connect client
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client"
+# 2) Cliente (Linux)
+export KSECUREVPN_KEY=... # mesma chave
+export KSECUREVPN_CLIENT_SET_DEFAULT_ROUTE=true
+export KSECUREVPN_CLIENT_DNS=8.8.8.8,8.8.4.4
+mvn -q exec:java -Dexec.args="client"
 
-# 3. Check server logs - should show client connection
-# 4. Check client - should show successful authentication
+# 3) Verifique IP público visto pelo cliente
+curl -4 https://ifconfig.co    # deve exibir o IP do servidor
 ```
 
-## Architecture Overview
+## Visão de arquitetura
 
-### Core Components
+### Componentes principais
 - **VpnServer**: Manages connections, authentication, routing
 - **VpnClient**: Connects to server, handles virtual networking
 - **Protocol**: Custom frame-based communication protocol
 - **RoutingTable**: Server-side packet forwarding
 - **VirtualInterface**: Abstract TUN device interface
 
-### Security Model
-- **Encryption**: AES with unique IV per frame
+### Modelo de segurança
+- **Criptografia**: AES‑GCM (AEAD) com nonce de 12B e tag de 16B
 - **Authentication**: PBKDF2 password hashing
 - **Session Tracking**: Unique IDs for audit trails
 - **Key Distribution**: Environment variable (not production-ready)
