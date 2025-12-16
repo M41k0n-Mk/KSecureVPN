@@ -13,6 +13,7 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import javax.crypto.SecretKey
+import tunneling.vpn.linux.ClientNetworking
 
 /**
  * Experimental VPN client using UDP transport to exchange raw IP packets with the server.
@@ -28,6 +29,8 @@ class VpnClient(
 ) {
     private val logger = SecureLogger.getInstance()
     private val serverAddress = InetAddress.getByName(serverHost)
+    private var sendSeq: Long = 1L
+    private val antiReplay = AntiReplayWindow()
 
     fun start() =
         runBlocking {
@@ -47,10 +50,10 @@ class VpnClient(
 
             // Receive AUTH response
             val response = receiveFrame(socket) ?: error("No AUTH response")
-            if (response.first != FrameType.AUTH_RESPONSE || response.second.size != 1) {
+            if (response.type != FrameType.AUTH_RESPONSE || response.payload.size != 1) {
                 error("Invalid AUTH response")
             }
-            val code = response.second[0]
+            val code = response.payload[0]
             if (code != tunneling.ResponseCode.AUTH_SUCCESS) {
                 error("Authentication failed: $code")
             }
@@ -59,16 +62,34 @@ class VpnClient(
             // Send IP_REQUEST
             sendFrame(socket, FrameType.CONTROL, byteArrayOf(ControlKind.IP_REQUEST))
             val ipAssign = receiveFrame(socket) ?: error("No IP assignment")
-            require(ipAssign.first == FrameType.CONTROL && ipAssign.second.size >= 5 && ipAssign.second[0] == ControlKind.IP_ASSIGN) {
+            require(ipAssign.type == FrameType.CONTROL && ipAssign.payload.size >= 5 && ipAssign.payload[0] == ControlKind.IP_ASSIGN) {
                 "Unexpected IP assignment"
             }
             val ipInt =
-                ((ipAssign.second[1].toInt() and 0xFF) shl 24) or
-                    ((ipAssign.second[2].toInt() and 0xFF) shl 16) or
-                    ((ipAssign.second[3].toInt() and 0xFF) shl 8) or
-                    (ipAssign.second[4].toInt() and 0xFF)
+                ((ipAssign.payload[1].toInt() and 0xFF) shl 24) or
+                    ((ipAssign.payload[2].toInt() and 0xFF) shl 16) or
+                    ((ipAssign.payload[3].toInt() and 0xFF) shl 8) or
+                    (ipAssign.payload[4].toInt() and 0xFF)
             val assigned = IPv4.intToInet4(ipInt)
             logger.logSessionEvent("vpn-client", LogLevel.INFO, "Assigned virtual IP ${assigned.hostAddress}")
+
+            // Auto-configuração do cliente (Linux)
+            try {
+                val os = System.getProperty("os.name")?.lowercase() ?: ""
+                if (os.contains("linux")) {
+                    val setDefault = System.getenv("KSECUREVPN_CLIENT_SET_DEFAULT_ROUTE")?.toBoolean() ?: false
+                    val dns = System.getenv("KSECUREVPN_CLIENT_DNS") ?: "8.8.8.8,8.8.4.4"
+                    ClientNetworking.configureLinuxClient(
+                        tunName = vInterface.name,
+                        ipCidr = "${assigned.hostAddress}/24",
+                        mtu = vInterface.mtu,
+                        setDefaultRoute = setDefault,
+                        dnsServersCsv = dns,
+                    )
+                }
+            } catch (e: Exception) {
+                logger.logSessionEvent("vpn-client", LogLevel.WARN, "Falha ao auto-configurar rede no cliente: ${e.message}")
+            }
 
             // Start loops
             val scope = CoroutineScope(Dispatchers.IO)
@@ -87,8 +108,10 @@ class VpnClient(
                 scope.launch {
                     while (isActive) {
                         val frame = receiveFrame(socket) ?: break
-                        if (frame.first == FrameType.PACKET) {
-                            val p = frame.second
+                        if (frame.type == FrameType.PACKET) {
+                            // Anti-replay: aceita somente sequências válidas
+                            if (!antiReplay.accept(frame.seq)) continue
+                            val p = frame.payload
                             if (p.size <= vInterface.mtu + 64) {
                                 vInterface.writePacket(p, p.size)
                             }
@@ -110,7 +133,7 @@ class VpnClient(
         type: Byte,
         payload: ByteArray,
     ) {
-        val data = PacketFramer.createFrame(type, payload, key)
+        val data = PacketFramer.createFrameWithSeq(type, sendSeq++, payload, key)
         val packet = DatagramPacket(data, data.size, serverAddress, serverPort)
         socket.send(packet)
     }
@@ -118,12 +141,12 @@ class VpnClient(
     /**
      * Receives and parses a framed message from the server over UDP.
      */
-    private fun receiveFrame(socket: DatagramSocket): Pair<Byte, ByteArray>? {
+    private fun receiveFrame(socket: DatagramSocket): PacketFramer.Frame? {
         val buffer = ByteArray(65536)
         val packet = DatagramPacket(buffer, buffer.size)
         socket.receive(packet)
         val data = packet.data.copyOfRange(0, packet.length)
-        return PacketFramer.readFrameFromBytes(data, key)
+        return PacketFramer.readFrameFromBytesWithSeq(data, key)
     }
 }
 
