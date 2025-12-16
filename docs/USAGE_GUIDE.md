@@ -2,19 +2,23 @@
 
 ## What KSecureVPN Does Today ✅
 
-KSecureVPN is a working VPN prototype that creates an **encrypted overlay network** for peer-to-peer communication. It's not yet a full internet VPN, but you can use it to connect multiple clients that communicate securely through a central server.
+KSecureVPN is a functional VPN prototype that creates an encrypted overlay network between clients through a central server. The current implementation uses UDP as the transport and AES‑GCM (AEAD) for confidentiality and integrity, with per‑frame sequence numbers and an anti‑replay window. On Linux, the server can act as an internet gateway (egress) when IP forwarding and NAT (iptables/nftables) are enabled — automation for these rules is built‑in.
 
-### Current Capabilities
+### Current capabilities
 
-**✅ Encrypted Communication**: All traffic between clients and server is AES-encrypted
-**✅ Peer-to-Peer Networking**: Connected clients can exchange IP packets
-**✅ Automatic IP Assignment**: Each client gets a unique IP (10.8.0.2, 10.8.0.3, etc.)
-**✅ Authentication**: Username/password access control
-**✅ Session Management**: Connection tracking and automatic cleanup
+**✅ Authenticated encryption (AEAD)**: Traffic protected with AES‑GCM + authentication tag
+**✅ Anti‑replay**: Per‑frame sequence number and sliding window
+**✅ UDP transport**: Low latency and better performance on lossy networks
+**✅ Server‑mediated P2P**: IP packet forwarding between clients
+**✅ Automatic IP assignment**: 10.8.0.0/24 pool (10.8.0.1 reserved as gateway)
+**✅ Authentication**: Username/password with PBKDF2
+**✅ Real TUN**: Linux (`RealTun`) and Windows (`Wintun`) with in‑memory fallback
+**✅ Server as gateway (Linux)**: IP forwarding + NAT (iptables or nftables) automation
+**✅ Linux client auto‑config**: Bring up TUN, set IP/MTU, optional default route and DNS
 
-### How to Use It Right Now
+### How to use now
 
-#### Quick Start
+#### Quick Start (Linux)
 
 1. **Generate encryption key**:
 ```bash
@@ -22,18 +26,29 @@ export KSECUREVPN_KEY=$(head -c 32 /dev/urandom | base64)
 echo "Key: $KSECUREVPN_KEY"
 ```
 
-2. **Start the server**:
+2. **Start the server** (Linux; requires root/CAP_NET_ADMIN for networking changes):
 ```bash
-mvn exec:java -Dexec.args="server"
+# Interface WAN para NAT (ex.: eth0)
+export KSECUREVPN_WAN_IFACE=eth0
+# (opcional) escolher backend de firewall/NAT: iptables (padrão) ou nftables
+export KSECUREVPN_FIREWALL_BACKEND=nftables
+# (opcional) abrir UDP/9001 no ufw/firewalld (se instalados)
+export KSECUREVPN_FIREWALL_OPEN_PORT=true
+# (opcional) tornar regra permanente (firewalld)
+export KSECUREVPN_FIREWALL_PERMANENT=true
+
+mvn -q exec:java -Dexec.args="server"
 ```
 
-3. **Connect clients** (in different terminals):
+3. **Connect clients** (in separate terminals):
 ```bash
-# Client 1 (gets IP 10.8.0.2)
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+# Client 1 (gets 10.8.0.2). Optional: set default route and DNS on Linux client
+export KSECUREVPN_CLIENT_SET_DEFAULT_ROUTE=true
+export KSECUREVPN_CLIENT_DNS=8.8.8.8,8.8.4.4
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn -q exec:java -Dexec.args="client" &
 
-# Client 2 (gets IP 10.8.0.3)
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+# Client 2 (gets 10.8.0.3)
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn -q exec:java -Dexec.args="client" &
 ```
 
 #### Demo Mode
@@ -45,18 +60,18 @@ mvn exec:java -Dexec.args="vpn-demo"
 
 This shows packet exchange between simulated clients Alice and Bob.
 
-## How Communication Works
+## How communication works
 
-### Network Flow
+### Network flow
 ```
-Client A (10.8.0.2) ────[Encrypted TCP]──── Server ────[Encrypted TCP]──── Client B (10.8.0.3)
+Client A (10.8.0.2) ────[Encrypted UDP/AEAD]──── Server ────[Encrypted UDP/AEAD]──── Client B (10.8.0.3)
         │                                               │
         └─────────────── Virtual Network ───────────────┘
 ```
 
-### What Happens When You Connect
+### What happens when you connect
 
-1. **Client connects** → TCP connection to server:9001
+1. **Client connects** → UDP para server:9001
 2. **Authentication** → Sends username/password
 3. **IP Assignment** → Server gives unique IP from 10.8.0.0/24
 4. **Route Registration** → Server adds client to routing table
@@ -66,78 +81,69 @@ Client A (10.8.0.2) ────[Encrypted TCP]──── Server ────[
 
 When Client A sends a packet to Client B's IP:
 1. Client A encapsulates IP packet in encrypted frame
-2. Sends to server via TCP
+2. Sends to the server via UDP
 3. Server decrypts, reads destination IP
 4. Looks up route in routing table
 5. Forwards encrypted packet to Client B
 6. Client B decrypts and receives the packet
 
-## What You CAN Do Today
+## What you can do today
 
-### ✅ Test Peer Communication
+### ✅ Test peer communication
 - Connect multiple clients to same server
 - Send packets between clients using their VPN IPs
 - All traffic is encrypted end-to-end
 
-### ✅ Learn VPN Internals
+### ✅ Learn VPN internals
 - Study the protocol implementation
 - Understand packet routing and encryption
 - Experiment with network programming
 
-### ✅ Use as Secure Chat/Overlay Network
+### ✅ Use as secure overlay
 - Create private networks for specific applications
 - Secure communication between devices
 
-## What You CANNOT Do Yet (Roadmap)
+## Roadmap (updated)
 
-### 🔴 Access Internet Through VPN
-**Problem**: Sites see your real IP, not the server's IP
-**Solution Needed**: NAT/Masquerading on server + routing configuration
+### 🟢 Internet via VPN (Linux)
+Available when the Linux server has `KSECUREVPN_WAN_IFACE` set. The server brings up the TUN, enables `net.ipv4.ip_forward=1`, and applies NAT/FORWARD via iptables or nftables. The Linux client can set default route via VPN and DNS.
 
-### 🔴 Automatic Client Setup
-**Problem**: Manual key distribution and complex setup
-**Solution Needed**: Configuration files + automatic routing
+### 🟢 Client automation (Linux)
+After `IP_ASSIGN`, the client configures IP/MTU, optional default route, and DNS. Windows/macOS: pending.
 
-### 🟡 Real Network Integration (cross‑platform)
-Hoje:
-- Linux: TUN real suportado via `/dev/net/tun` (classe `tunneling.vpn.linux.RealTun`).
-- Windows: TUN real suportado via Wintun (classe `tunneling.vpn.windows.WintunTun`). Requer `wintun.dll` no PATH ou variável `KSECUREVPN_WINTUN_DLL` apontando para a DLL.
-- Outros SOs (ex.: macOS): ainda sem TUN real — usa `MemoryTun` como fallback.
+### 🟡 Real network integration (cross‑platform)
+Today:
+- Linux: real TUN `/dev/net/tun` (`tunneling.vpn.linux.RealTun`).
+- Windows: Wintun (`tunneling.vpn.windows.WintunTun`) with `wintun.dll`.
+- Others (e.g., macOS): no real TUN — uses `MemoryTun`.
 
-Próximos passos:
-- Implementar utun no macOS.
-- Automatizar configuração de IP/MTU/rotas/DNS (atualmente manual).
+Next steps:
+- Implement utun (macOS) and equivalent automation.
 
 ## Development Roadmap
 
-### Phase 1: Real TUN Interface (Atualizado)
-- Linux: CONCLUÍDO — `/dev/net/tun` via JNA (`RealTun`).
-- Windows: CONCLUÍDO — Wintun via JNA (`WintunTun`).
-- macOS: PENDENTE — utun.
+### Phase 1: Real TUN (updated)
+- Linux: DONE — `/dev/net/tun` via JNA (`RealTun`).
+- Windows: DONE — Wintun via JNA (`WintunTun`).
+- macOS: PENDING — utun.
 
-### Phase 2: Internet Access
-- Add iptables NAT rules on server
-- Enable IP forwarding
-- Configure server-side routing
+### Phase 2: Internet access (Linux)
+- DONE — iptables/nftables NAT + IP forwarding + FORWARD rules via `SystemNetworking`.
 
-### Phase 3: Client Automation
-- Create `.ovpn`-style config files
-- Automatic route setup on clients
-- Cross-platform client (Windows/macOS/Linux)
+### Phase 3: Client automation
+- Linux: DONE — IP/MTU/optional default route and DNS.
+- Windows/macOS: PENDING.
 
-### Phase 4: Production Security
-- Certificate-based authentication
-- Key rotation and perfect forward secrecy
-- DDoS protection and rate limiting
+### Phase 4: Production security
+- In progress: transport with AEAD (AES‑GCM) + anti‑replay (completed).
+- Next: PFS (Noise/TLS 1.3), key rotation, rate limiting and anti‑DoS.
 
-### Phase 5: Advanced Features
-- UDP support for better performance
-- Multi-server/high availability
-- GUI client application
+### Phase 5: Advanced features
+- Multi‑server/HA, metrics, reconnection/keepalive, GUI.
 
-## Testing Current Functionality
+## Testing
 
-### Automated Tests
+### Automated tests
 ```bash
 # Run all tests
 mvn test
@@ -149,37 +155,42 @@ mvn test ktlint:check
 # Tests server startup and client connection
 ```
 
-Observações de testes TUN:
+Notes on TUN tests:
 - Testes Linux e Windows que tocam TUN real são condicionais:
   - Linux: executados apenas quando `/dev/net/tun` existe e permissões permitem. O smoke de I/O requer `ENABLE_TUN_TESTS=true`.
   - Windows: executados apenas quando `wintun.dll` está disponível. O smoke de I/O requer `ENABLE_WINTUN_TESTS=true`.
 
-### Manual Testing
+### Manual smoke test
 ```bash
-# 1. Start server
-mvn exec:java -Dexec.args="server"
+# 1) Server (Linux)
+export KSECUREVPN_KEY=$(head -c 32 /dev/urandom | base64)
+export KSECUREVPN_WAN_IFACE=eth0
+mvn -q exec:java -Dexec.args="server"
 
-# 2. In another terminal, connect client
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client"
+# 2) Client (Linux)
+export KSECUREVPN_KEY=... # same key
+export KSECUREVPN_CLIENT_SET_DEFAULT_ROUTE=true
+export KSECUREVPN_CLIENT_DNS=8.8.8.8,8.8.4.4
+mvn -q exec:java -Dexec.args="client"
 
-# 3. Check server logs - should show client connection
-# 4. Check client - should show successful authentication
+# 3) Check public IP as seen by the client
+curl -4 https://ifconfig.co    # should show the server's IP
 ```
 
-## Architecture Overview
+## Architecture overview
 
-### Core Components
+### Core components
 - **VpnServer**: Manages connections, authentication, routing
 - **VpnClient**: Connects to server, handles virtual networking
 - **Protocol**: Custom frame-based communication protocol
 - **RoutingTable**: Server-side packet forwarding
 - **VirtualInterface**: Abstract TUN device interface
 
-### Security Model
-- **Encryption**: AES with unique IV per frame
+### Security model
+- **Encryption**: AES‑GCM (AEAD) with 12‑byte nonce and 16‑byte tag
 - **Authentication**: PBKDF2 password hashing
 - **Session Tracking**: Unique IDs for audit trails
-- **Key Distribution**: Environment variable (not production-ready)
+- **Key Distribution**: Environment variable (not production‑ready)
 
 ## Contributing
 

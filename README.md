@@ -10,18 +10,19 @@ KSecureVPN is an open-source VPN solution developed in Kotlin, designed for lear
 
 ## Features (MVP)
 
-- **VPN Tunneling:** Establishes secure VPN connections using UDP sockets for better performance, encapsulating IP packets.
-- **Encryption:** Implements AES-based encryption to protect all VPN traffic.
-- **Authentication:** Supports username/password authentication to restrict VPN access.
-- **Session Tracking:** Each VPN connection is assigned a unique session ID for debugging and audit purposes.
-- **Secure Logging:** Detailed debug logs with decryption error tracking, protected from unauthorized access. Console output remains generic and safe.
-- **IP Management:** Dynamic IP assignment from pools, routing table management.
-- **Modular Design:** Organized in clear modules: networking, cryptography, authentication, configuration.
-- **Cross-platform:** Runs on any JVM-supported system (Linux, Windows, macOS).
+- **VPN Tunneling (UDP):** Secure VPN over UDP, encapsulating raw IP packets (lower latency and overhead).
+- **Encryption (AEAD):** AES‑GCM with per‑frame sequence number and anti‑replay window (confidentiality + integrity).
+- **Authentication:** Username/password (PBKDF2) to control access.
+- **Session Tracking:** Each connection has a Session ID for auditing.
+- **Secure Logging:** Secure logs with rotation options and without leaking secrets.
+- **IP Management:** 10.8.0.0/24 pool and routing table.
+- **Server Gateway (Linux):** Server can act as an internet gateway with IP forwarding + NAT (iptables/nftables) and optional UDP/9001 opening (ufw/firewalld).
+- **Client Auto‑Networking (Linux):** Client configures TUN, IP/MTU, optional default route, and DNS automatically.
+- **Cross‑platform:** Linux and Windows with real TUN; in‑memory fallback otherwise.
 
 ## Architecture & Communication
 
-KSecureVPN currently supports **encrypted peer-to-peer communication** between connected clients through a central server. While it provides a solid foundation for VPN development, it functions as a "VPN overlay network" rather than a full internet VPN.
+KSecureVPN supports **encrypted P2P communication** between clients via a central server. On Linux, the server can also route traffic to the internet (egress) when NAT/forwarding is enabled (automated via `SystemNetworking`).
 
 ### Transport Layer: UDP
 KSecureVPN uses **UDP (User Datagram Protocol)** instead of TCP for its transport layer. This choice provides several advantages for VPN implementations:
@@ -38,28 +39,35 @@ However, this means authentication and control messages are sent unreliably. In 
 - **Automatic IP Assignment**: Each client gets a unique IP from the 10.8.0.0/24 range
 - **Packet Routing**: Server maintains routing tables to forward packets between clients
 - **Authentication**: Username/password-based access control
+- **AEAD + Anti‑replay**: AES‑GCM + per‑frame sequence numbers
+- **Server egress (Linux)**: Automated NAT + forwarding (iptables/nftables)
 
-### Testing Communication
+### Testing Communication (Linux)
 ```bash
-# Terminal 1: Start server
+# Terminal 1: Start server (Linux; root/CAP_NET_ADMIN recommended)
 export KSECUREVPN_KEY=$(head -c 32 /dev/urandom | base64)
-mvn exec:java -Dexec.args="server"
+export KSECUREVPN_WAN_IFACE=eth0                 # set your WAN interface
+export KSECUREVPN_FIREWALL_BACKEND=nftables      # optional: or leave iptables
+export KSECUREVPN_FIREWALL_OPEN_PORT=true        # optional
+export KSECUREVPN_FIREWALL_PERMANENT=true        # optional (firewalld)
+mvn -q exec:java -Dexec.args="server"
 
 # Terminal 2: Connect client Alice (gets 10.8.0.2)
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+export KSECUREVPN_CLIENT_SET_DEFAULT_ROUTE=true  # optional: route all via VPN
+export KSECUREVPN_CLIENT_DNS=8.8.8.8,8.8.4.4     # optional: DNS over the tunnel
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn -q exec:java -Dexec.args="client" &
 
 # Terminal 3: Connect client Bob (gets 10.8.0.3)
-KSECUREVPN_KEY=$KSECUREVPN_KEY mvn exec:java -Dexec.args="client" &
+KSECUREVPN_KEY=$KSECUREVPN_KEY mvn -q exec:java -Dexec.args="client" &
 ```
 
 ### What Works Today
-Clients connected to the same server can communicate with each other using their assigned VPN IPs. The server acts as an encrypted router, forwarding packets between clients.
+Clients connected to the same server can communicate with each other using their assigned VPN IPs. On Linux, with NAT/forwarding enabled, clients can also access the internet through the server (sites will see the server's IP).
 
-### Limitations for Full VPN 🔴
-- No internet access through the VPN server (NAT/forwarding not automated)
-- No automatic routing configuration (IP/MTU/rotas/DNS ainda manuais)
-- No DNS configuration
-- Basic security (shared AES key)
+### Limitations and Notes
+- Internet egress is currently implemented for the Linux server only (requires root/CAP_NET_ADMIN and firewall tools installed).
+- Client automation currently targets Linux; Windows/macOS pending.
+- Symmetric key model for now (no PFS/Noise/TLS handshake yet) — suitable for lab; production hardening on the roadmap.
 
 Notes on virtual interfaces (TUN):
 - Linux: Real TUN supported via `/dev/net/tun` (JNA), class `tunneling.vpn.linux.RealTun`
@@ -103,7 +111,8 @@ The project follows a layered architecture for clarity and extensibility:
 - `IpAllowlist.kt` - IP address filtering and CIDR support
 
 #### `crypt/` - Cryptography
-- `AESCipher.kt` - AES encryption/decryption with IV handling
+- `GcmCipher.kt` - AES‑GCM (AEAD) helper
+- `AESCipher.kt` - (legacy) AES/CBC helper used for key generation/reading
 
 #### `docs/` - Documentation
 - `AUTHENTICATION.md` - Authentication system details
